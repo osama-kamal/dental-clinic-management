@@ -1,0 +1,19 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "target": "ES2020",
+    "lib": ["ES2020"],
+    "module": "CommonJS",
+    "moduleResolution": "node",
+    "jsx": "preserve",
+    "outDir": "./dist",
+    "baseUrl": ".",
+    "paths": {
+      "@shared/*": ["./src/shared/*"],
+      "@main/*": ["./src/main/*"],
+      "@database/*": ["./src/database/*"]
+    }
+  },
+  "include": ["src/main/**/*", "src/shared/**/*", "src/database/**/*"],
+  "exclude": ["node_modules", "dist", "src/renderer/**/*", "**/*.test.ts", "**/*.test.tsx", "**/*.property.test.ts"]
+}

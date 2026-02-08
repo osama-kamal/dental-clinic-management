@@ -404,7 +404,7 @@ export class DatabaseManager {
         columns.forEach((col: string, index: number) => {
           obj[col] = row[index];
         });
-        return obj as T;
+        return JSON.parse(JSON.stringify(obj)) as T; // Deep clone to plain object
       });
     } catch (error) {
       logger.error('Query execution failed', { sql, params, error });

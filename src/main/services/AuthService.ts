@@ -400,7 +400,7 @@ export class AuthService {
    * Map database row to User object
    */
   private mapRowToUser(row: any): User {
-    return {
+    return JSON.parse(JSON.stringify({
       id: row.id,
       username: row.username,
       firstName: row.first_name,
@@ -408,8 +408,8 @@ export class AuthService {
       role: row.role as UserRole,
       email: row.email || undefined,
       isActive: row.is_active === 1,
-      createdAt: new Date(row.created_at),
-      updatedAt: new Date(row.updated_at),
-    };
+      createdAt: row.created_at, // Keep as string
+      updatedAt: row.updated_at, // Keep as string
+    }));
   }
 }

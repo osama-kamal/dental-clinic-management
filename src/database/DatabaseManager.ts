@@ -1,13 +1,14 @@
-import Database from 'better-sqlite3';
+import initSqlJs, { Database as SqlJsDatabase } from 'sql.js';
 import { logger } from '../main/utils/logger';
 import fs from 'fs';
 import path from 'path';
 
 export class DatabaseManager {
-  private db: Database.Database | null = null;
+  private db: SqlJsDatabase | null = null;
   private dbPath: string;
   private backupInterval: NodeJS.Timeout | null = null;
   private backupDirectory: string;
+  private SQL: any = null;
 
   constructor(dbPath: string, backupDirectory?: string) {
     this.dbPath = dbPath;
@@ -19,33 +20,57 @@ export class DatabaseManager {
    */
   async initialize(): Promise<void> {
     try {
+      // Initialize sql.js
+      this.SQL = await initSqlJs();
+
       // Ensure the directory exists
       const dbDir = path.dirname(this.dbPath);
       if (!fs.existsSync(dbDir)) {
         fs.mkdirSync(dbDir, { recursive: true });
       }
 
-      // Open database connection with WAL mode for concurrent access
-      this.db = new Database(this.dbPath);
-      
-      // Enable WAL mode for better concurrent access
-      this.db.pragma('journal_mode = WAL');
-      
-      // Enable foreign keys
-      this.db.pragma('foreign_keys = ON');
+      // Load existing database or create new one
+      if (fs.existsSync(this.dbPath)) {
+        const buffer = fs.readFileSync(this.dbPath);
+        this.db = new this.SQL.Database(buffer);
+        logger.info('Loaded existing database');
+      } else {
+        this.db = new this.SQL.Database();
+        logger.info('Created new database');
+      }
 
-      // Verify database integrity
-      const integrityCheck = this.db.pragma('integrity_check', { simple: true }) as Array<{ integrity_check: string }>;
-      if (integrityCheck[0].integrity_check !== 'ok') {
-        throw new Error('Database integrity check failed');
+      // Enable foreign keys
+      if (this.db) {
+        this.db.run('PRAGMA foreign_keys = ON');
       }
 
       // Run migrations
       await this.runMigrations();
 
+      // Save database to disk
+      this.saveDatabase();
+
       logger.info('Database initialized successfully');
     } catch (error) {
       logger.error('Failed to initialize database', { error });
+      throw error;
+    }
+  }
+
+  /**
+   * Save database to disk
+   */
+  private saveDatabase(): void {
+    if (!this.db) {
+      throw new Error('Database not initialized');
+    }
+
+    try {
+      const data = this.db.export();
+      const buffer = Buffer.from(data);
+      fs.writeFileSync(this.dbPath, buffer);
+    } catch (error) {
+      logger.error('Failed to save database', { error });
       throw error;
     }
   }
@@ -59,7 +84,7 @@ export class DatabaseManager {
     }
 
     // Create schema_version table if it doesn't exist
-    this.db.exec(`
+    this.db.run(`
       CREATE TABLE IF NOT EXISTS schema_version (
         version INTEGER PRIMARY KEY,
         applied_at TEXT NOT NULL
@@ -75,12 +100,12 @@ export class DatabaseManager {
     for (const migration of migrations) {
       if (migration.version > currentVersion) {
         logger.info('Applying migration', { version: migration.version });
-        this.executeTransaction(() => {
-          migration.up(this.db!);
-          this.db!.prepare(
-            'INSERT INTO schema_version (version, applied_at) VALUES (?, ?)'
-          ).run(migration.version, new Date().toISOString());
-        });
+        migration.up(this.db);
+        this.db.run(
+          'INSERT INTO schema_version (version, applied_at) VALUES (?, ?)',
+          [migration.version, new Date().toISOString()]
+        );
+        this.saveDatabase();
         logger.info('Migration applied successfully', { version: migration.version });
       }
     }
@@ -95,10 +120,11 @@ export class DatabaseManager {
     }
 
     try {
-      const result = this.db
-        .prepare('SELECT MAX(version) as version FROM schema_version')
-        .get() as { version: number | null };
-      return result.version || 0;
+      const result = this.db.exec('SELECT MAX(version) as version FROM schema_version');
+      if (result.length > 0 && result[0].values.length > 0) {
+        return result[0].values[0][0] as number || 0;
+      }
+      return 0;
     } catch (error) {
       return 0;
     }
@@ -109,14 +135,14 @@ export class DatabaseManager {
    */
   private getMigrations(): Array<{
     version: number;
-    up: (db: Database.Database) => void;
+    up: (db: SqlJsDatabase) => void;
   }> {
     return [
       {
         version: 1,
-        up: (db: Database.Database) => {
+        up: (db: SqlJsDatabase) => {
           // Initial schema with all tables
-          db.exec(`
+          db.run(`
             -- Users table
             CREATE TABLE IF NOT EXISTS users (
               id TEXT PRIMARY KEY,
@@ -365,9 +391,21 @@ export class DatabaseManager {
     }
 
     try {
-      const stmt = this.db.prepare(sql);
-      const results = stmt.all(...params);
-      return results as T[];
+      const results = this.db.exec(sql, params);
+      if (results.length === 0) {
+        return [];
+      }
+
+      const columns = results[0].columns;
+      const values = results[0].values;
+
+      return values.map((row: any) => {
+        const obj: any = {};
+        columns.forEach((col: string, index: number) => {
+          obj[col] = row[index];
+        });
+        return obj as T;
+      });
     } catch (error) {
       logger.error('Query execution failed', { sql, params, error });
       throw error;
@@ -378,31 +416,31 @@ export class DatabaseManager {
    * Execute a query and return a single result
    */
   executeQueryOne<T = any>(sql: string, params: any[] = []): T | null {
-    if (!this.db) {
-      throw new Error('Database not initialized');
-    }
-
-    try {
-      const stmt = this.db.prepare(sql);
-      const result = stmt.get(...params);
-      return (result as T) || null;
-    } catch (error) {
-      logger.error('Query execution failed', { sql, params, error });
-      throw error;
-    }
+    const results = this.executeQuery<T>(sql, params);
+    return results.length > 0 ? results[0] : null;
   }
 
   /**
    * Execute a query that modifies data (INSERT, UPDATE, DELETE)
    */
-  executeUpdate(sql: string, params: any[] = []): Database.RunResult {
+  executeUpdate(sql: string, params: any[] = []): { changes: number; lastInsertRowid: number } {
     if (!this.db) {
       throw new Error('Database not initialized');
     }
 
     try {
-      const stmt = this.db.prepare(sql);
-      return stmt.run(...params);
+      this.db.run(sql, params);
+      this.saveDatabase();
+      
+      // Get changes count
+      const changesResult = this.db.exec('SELECT changes() as changes');
+      const changes = changesResult.length > 0 ? (changesResult[0].values[0][0] as number) : 0;
+      
+      // Get last insert rowid
+      const rowidResult = this.db.exec('SELECT last_insert_rowid() as rowid');
+      const lastInsertRowid = rowidResult.length > 0 ? (rowidResult[0].values[0][0] as number) : 0;
+      
+      return { changes, lastInsertRowid };
     } catch (error) {
       logger.error('Update execution failed', { sql, params, error });
       throw error;
@@ -417,10 +455,13 @@ export class DatabaseManager {
       throw new Error('Database not initialized');
     }
 
-    const transaction = this.db.transaction(operations);
     try {
-      transaction();
+      this.db.run('BEGIN TRANSACTION');
+      operations();
+      this.db.run('COMMIT');
+      this.saveDatabase();
     } catch (error) {
+      this.db.run('ROLLBACK');
       logger.error('Transaction failed and was rolled back', { error });
       throw error;
     }
@@ -428,7 +469,6 @@ export class DatabaseManager {
 
   /**
    * Create a backup of the database
-   * Requirements: 8.4, 8.5
    */
   async backup(destination: string): Promise<void> {
     if (!this.db) {
@@ -442,8 +482,11 @@ export class DatabaseManager {
         fs.mkdirSync(destDir, { recursive: true });
       }
 
-      // Use better-sqlite3's backup method
-      await this.db.backup(destination);
+      // Export and save database
+      const data = this.db.export();
+      const buffer = Buffer.from(data);
+      fs.writeFileSync(destination, buffer);
+      
       logger.info('Database backup created', { destination });
     } catch (error) {
       logger.error('Backup failed', { destination, error });
@@ -453,7 +496,6 @@ export class DatabaseManager {
 
   /**
    * Start automatic daily backup
-   * Requirements: 8.4, 8.5
    */
   startAutomaticBackup(backupTime: { hour: number; minute: number } = { hour: 2, minute: 0 }): void {
     // Stop existing backup schedule if any
@@ -497,7 +539,6 @@ export class DatabaseManager {
 
   /**
    * Perform scheduled backup with timestamp
-   * Requirements: 8.5, 8.7
    */
   private async performScheduledBackup(): Promise<void> {
     try {
@@ -518,7 +559,6 @@ export class DatabaseManager {
 
   /**
    * Apply backup retention policy (keep last 30 backups)
-   * Requirements: 8.6
    */
   private async applyBackupRetentionPolicy(): Promise<void> {
     try {
@@ -552,7 +592,6 @@ export class DatabaseManager {
 
   /**
    * Validate database integrity
-   * Requirements: 8.8, 8.9
    */
   validateIntegrity(): boolean {
     if (!this.db) {
@@ -560,11 +599,11 @@ export class DatabaseManager {
     }
 
     try {
-      const integrityCheck = this.db.pragma('integrity_check', { simple: true }) as Array<{ integrity_check: string }>;
-      const isValid = integrityCheck[0].integrity_check === 'ok';
+      const result = this.db.exec('PRAGMA integrity_check');
+      const isValid = result.length > 0 && result[0].values[0][0] === 'ok';
       
       if (!isValid) {
-        logger.error('Database integrity check failed', { result: integrityCheck });
+        logger.error('Database integrity check failed', { result });
       }
       
       return isValid;
@@ -576,13 +615,14 @@ export class DatabaseManager {
 
   /**
    * Close the database connection
-   * Requirements: 11.4
    */
   close(): void {
     // Stop automatic backup
     this.stopAutomaticBackup();
     
     if (this.db) {
+      // Save one last time before closing
+      this.saveDatabase();
       this.db.close();
       this.db = null;
       logger.info('Database connection closed');
@@ -592,7 +632,7 @@ export class DatabaseManager {
   /**
    * Get the underlying database instance (use with caution)
    */
-  getDatabase(): Database.Database {
+  getDatabase(): SqlJsDatabase {
     if (!this.db) {
       throw new Error('Database not initialized');
     }

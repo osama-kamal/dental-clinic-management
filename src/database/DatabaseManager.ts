@@ -65,6 +65,11 @@ export class DatabaseManager {
       throw new Error('Database not initialized');
     }
 
+    // sql.js export() ends any open transaction, so never persist mid-transaction.
+    if (this.inTransaction) {
+      return;
+    }
+
     try {
       const data = this.db.export();
       const buffer = Buffer.from(data);
@@ -450,18 +455,33 @@ export class DatabaseManager {
   /**
    * Execute operations within a transaction
    */
+  private inTransaction = false;
+
   executeTransaction(operations: () => void): void {
     if (!this.db) {
       throw new Error('Database not initialized');
     }
 
+    if (this.inTransaction) {
+      // Nested call: join the outer transaction.
+      operations();
+      return;
+    }
+
     try {
       this.db.run('BEGIN TRANSACTION');
+      this.inTransaction = true;
       operations();
       this.db.run('COMMIT');
+      this.inTransaction = false;
       this.saveDatabase();
     } catch (error) {
-      this.db.run('ROLLBACK');
+      this.inTransaction = false;
+      try {
+        this.db.run('ROLLBACK');
+      } catch {
+        // no active transaction to roll back
+      }
       logger.error('Transaction failed and was rolled back', { error });
       throw error;
     }

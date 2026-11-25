@@ -10,6 +10,73 @@ export interface ApiResponse<T = any> {
   error?: string;
 }
 
+// ---- Adapters between the UI field names and the main-process field names ----
+const pad = (n: number) => String(n).padStart(2, '0');
+const hhmm = (d: Date) => `${pad(d.getHours())}:${pad(d.getMinutes())}`;
+
+export function appointmentToUi(apt: any, patientNames: Record<string, string> = {}) {
+  const start = new Date(apt.startTime);
+  const end = new Date(start.getTime() + (apt.duration || 0) * 60000);
+  return {
+    ...apt,
+    appointmentDate: `${start.getFullYear()}-${pad(start.getMonth() + 1)}-${pad(start.getDate())}`,
+    startTime: hhmm(start),
+    endTime: hhmm(end),
+    patientName: patientNames[apt.patientId] || apt.patientId,
+    dentistName: apt.dentistName || 'Dentist',
+    reason: apt.notes || apt.appointmentType || '',
+  };
+}
+
+export function appointmentToBackend(ui: any) {
+  const start = new Date(`${ui.appointmentDate}T${ui.startTime}:00`);
+  const end = new Date(`${ui.appointmentDate}T${ui.endTime}:00`);
+  return {
+    patientId: ui.patientId,
+    dentistId: ui.dentistId,
+    startTime: start.toISOString(),
+    duration: Math.round((end.getTime() - start.getTime()) / 60000),
+    appointmentType: ui.appointmentType || ui.reason || 'General',
+    notes: ui.reason || undefined,
+    ...(ui.status ? { status: ui.status } : {}),
+  };
+}
+
+export function inventoryToUi(item: any) {
+  return { ...item, itemName: item.name, unit: item.unitOfMeasure };
+}
+
+export function inventoryToBackend(ui: any) {
+  return {
+    name: ui.itemName,
+    category: ui.category,
+    unitOfMeasure: ui.unit,
+    currentQuantity: Number(ui.currentQuantity),
+    minimumThreshold: Number(ui.minimumThreshold),
+    unitCost: Number(ui.unitCost),
+  };
+}
+
+export function transactionToUi(t: any) {
+  return { ...t, transactionDate: t.createdAt, userId: t.performedBy, reason: t.reason || '' };
+}
+
+export function invoiceToUi(inv: any, patientNames: Record<string, string> = {}) {
+  return {
+    ...inv,
+    invoiceDate: inv.createdAt,
+    total: inv.totalAmount,
+    patientName: patientNames[inv.patientId] || inv.patientId,
+    status: inv.status === 'Partial' ? 'Partially Paid' : inv.status,
+  };
+}
+
+const mapData = (res: ApiResponse, fn: (x: any) => any): ApiResponse => {
+  if (res.success && Array.isArray(res.data)) return { ...res, data: res.data.map(fn) };
+  if (res.success && res.data) return { ...res, data: fn(res.data) };
+  return res;
+};
+
 export class IpcClient {
   /**
    * Invoke IPC handler and return typed response
@@ -69,16 +136,30 @@ export class IpcClient {
   }
 
   // ==================== Appointments ====================
+  private async patientNameMap(): Promise<Record<string, string>> {
+    const res = await this.invoke('patients:search', {});
+    const map: Record<string, string> = {};
+    if (res.success && Array.isArray(res.data)) {
+      for (const p of res.data) map[p.id] = `${p.firstName} ${p.lastName}`.trim();
+    }
+    return map;
+  }
+
   async createAppointment(appointmentData: any, createdBy: string) {
-    return this.invoke('appointments:create', appointmentData, createdBy);
+    const names = await this.patientNameMap();
+    const res = await this.invoke('appointments:create', appointmentToBackend(appointmentData), createdBy);
+    return mapData(res, (a) => appointmentToUi(a, names));
   }
 
   async getAppointment(appointmentId: string) {
-    return this.invoke('appointments:get', appointmentId);
+    const names = await this.patientNameMap();
+    return mapData(await this.invoke('appointments:get', appointmentId), (a) => appointmentToUi(a, names));
   }
 
   async updateAppointment(appointmentId: string, appointmentData: any) {
-    return this.invoke('appointments:update', appointmentId, appointmentData);
+    const names = await this.patientNameMap();
+    const res = await this.invoke('appointments:update', appointmentId, appointmentToBackend(appointmentData));
+    return mapData(res, (a) => appointmentToUi(a, names));
   }
 
   async cancelAppointment(appointmentId: string, reason: string) {
@@ -86,11 +167,22 @@ export class IpcClient {
   }
 
   async searchAppointments(searchQuery: any) {
-    return this.invoke('appointments:search', searchQuery);
+    const names = await this.patientNameMap();
+    const q: any = { ...searchQuery };
+    if (q.date) {
+      const day = new Date(`${q.date}T00:00:00`);
+      q.dateRange = {
+        start: day.toISOString(),
+        end: new Date(day.getTime() + 24 * 3600 * 1000 - 1).toISOString(),
+      };
+      delete q.date;
+    }
+    return mapData(await this.invoke('appointments:search', q), (a) => appointmentToUi(a, names));
   }
 
   async getAppointmentsByDateRange(start: string, end: string) {
-    return this.invoke('appointments:getByDateRange', start, end);
+    const names = await this.patientNameMap();
+    return mapData(await this.invoke('appointments:getByDateRange', start, end), (a) => appointmentToUi(a, names));
   }
 
   async generateReminders() {
@@ -137,15 +229,29 @@ export class IpcClient {
 
   // ==================== Billing ====================
   async createInvoice(invoiceData: any, createdBy: string) {
-    return this.invoke('billing:createInvoice', invoiceData, createdBy);
+    const names = await this.patientNameMap();
+    const backendData = {
+      patientId: invoiceData.patientId,
+      treatmentIds: (invoiceData.items || []).map((i: any) => i.treatmentId).filter(Boolean),
+      taxRate: (Number(invoiceData.taxRate) || 0) / 100,
+    };
+    return mapData(await this.invoke('billing:createInvoice', backendData, createdBy), (i) => invoiceToUi(i, names));
   }
 
   async getInvoice(invoiceId: string) {
-    return this.invoke('billing:getInvoice', invoiceId);
+    const names = await this.patientNameMap();
+    return mapData(await this.invoke('billing:getInvoice', invoiceId), (i) => invoiceToUi(i, names));
   }
 
   async recordPayment(invoiceId: string, paymentData: any, recordedBy: string) {
-    return this.invoke('billing:recordPayment', invoiceId, paymentData, recordedBy);
+    const names = await this.patientNameMap();
+    const backendData = {
+      amount: Number(paymentData.amount),
+      method: paymentData.method || paymentData.paymentMethod,
+      reference: paymentData.reference || undefined,
+      date: new Date(),
+    };
+    return mapData(await this.invoke('billing:recordPayment', invoiceId, backendData, recordedBy), (i) => invoiceToUi(i, names));
   }
 
   async applyDiscount(invoiceId: string, discountData: any, userId: string) {
@@ -157,20 +263,35 @@ export class IpcClient {
   }
 
   async searchInvoices(searchQuery: any) {
-    return this.invoke('billing:searchInvoices', searchQuery);
+    const names = await this.patientNameMap();
+    const { startDate, endDate, status, patientName, ...rest } = searchQuery || {};
+    const q: any = { ...rest };
+    if (status) q.status = status === 'Partially Paid' ? 'Partial' : status;
+    if (startDate || endDate) {
+      q.dateRange = {
+        start: new Date(startDate ? `${startDate}T00:00:00` : '1970-01-01T00:00:00').toISOString(),
+        end: new Date(endDate ? `${endDate}T23:59:59` : '2999-12-31T23:59:59').toISOString(),
+      };
+    }
+    const res = mapData(await this.invoke('billing:searchInvoices', q), (i) => invoiceToUi(i, names));
+    if (patientName && res.success && Array.isArray(res.data)) {
+      const needle = String(patientName).toLowerCase();
+      res.data = res.data.filter((i: any) => String(i.patientName).toLowerCase().includes(needle));
+    }
+    return res;
   }
 
   // ==================== Inventory ====================
   async createInventoryItem(itemData: any, createdBy: string) {
-    return this.invoke('inventory:createItem', itemData, createdBy);
+    return mapData(await this.invoke('inventory:createItem', inventoryToBackend(itemData), createdBy), inventoryToUi);
   }
 
   async getInventoryItem(itemId: string) {
-    return this.invoke('inventory:getItem', itemId);
+    return mapData(await this.invoke('inventory:getItem', itemId), inventoryToUi);
   }
 
   async updateInventoryItem(itemId: string, itemData: any) {
-    return this.invoke('inventory:updateItem', itemId, itemData);
+    return mapData(await this.invoke('inventory:updateItem', itemId, inventoryToBackend(itemData)), inventoryToUi);
   }
 
   async adjustInventoryQuantity(itemId: string, quantity: number, reason: string, userId: string) {
@@ -178,15 +299,20 @@ export class IpcClient {
   }
 
   async getLowStockItems(threshold?: number) {
-    return this.invoke('inventory:getLowStock', threshold);
+    return mapData(await this.invoke('inventory:getLowStock', threshold), inventoryToUi);
   }
 
   async getInventoryTransactionHistory(itemId: string) {
-    return this.invoke('inventory:getTransactionHistory', itemId);
+    return mapData(await this.invoke('inventory:getTransactionHistory', itemId), transactionToUi);
   }
 
   async searchInventory(searchQuery: any) {
-    return this.invoke('inventory:search', searchQuery);
+    const q: any = { ...searchQuery };
+    if ('itemName' in q) {
+      q.name = q.itemName;
+      delete q.itemName;
+    }
+    return mapData(await this.invoke('inventory:search', q), inventoryToUi);
   }
 
   // ==================== Reports ====================

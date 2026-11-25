@@ -6,6 +6,7 @@ import { LoginScreen } from './components/auth/LoginScreen';
 import { AppShell } from './components/layout/AppShell';
 import { PatientList } from './components/patients/PatientList';
 import { AppointmentCalendar } from './components/appointments/AppointmentCalendar';
+import { AppointmentForm } from './components/appointments/AppointmentForm';
 import { TreatmentList } from './components/treatments/TreatmentList';
 import { ToothChartExample } from './components/treatments/ToothChartExample';
 import { InvoiceList } from './components/billing/InvoiceList';
@@ -35,7 +36,38 @@ const theme = createTheme({
 // Placeholder components for other modules
 const Dashboard = () => <ReportDashboard />;
 
-const Appointments = () => <AppointmentCalendar />;
+const Appointments = () => {
+  const [formOpen, setFormOpen] = useState(false);
+  const [editing, setEditing] = useState<any>(null);
+  const [refreshKey, setRefreshKey] = useState(0);
+
+  if (formOpen) {
+    return (
+      <AppointmentForm
+        appointment={editing}
+        onClose={(saved) => {
+          setFormOpen(false);
+          setEditing(null);
+          if (saved) setRefreshKey((k) => k + 1);
+        }}
+      />
+    );
+  }
+
+  return (
+    <AppointmentCalendar
+      key={refreshKey}
+      onAddAppointment={() => {
+        setEditing(null);
+        setFormOpen(true);
+      }}
+      onAppointmentClick={(apt) => {
+        setEditing(apt);
+        setFormOpen(true);
+      }}
+    />
+  );
+};
 
 const Treatments = () => <ToothChartExample />;
 
@@ -44,6 +76,7 @@ const Billing = () => {
   const [selectedInvoiceId, setSelectedInvoiceId] = useState<string | null>(null);
   const [showInvoicePreview, setShowInvoicePreview] = useState(false);
   const [selectedInvoiceForPayment, setSelectedInvoiceForPayment] = useState<any>(null);
+  const [refreshKey, setRefreshKey] = useState(0);
 
   const handleAddInvoice = () => {
     setShowInvoiceForm(true);
@@ -52,7 +85,7 @@ const Billing = () => {
   const handleCloseInvoiceForm = (saved: boolean) => {
     setShowInvoiceForm(false);
     if (saved) {
-      // Refresh invoice list
+      setRefreshKey((k) => k + 1);
     }
   };
 
@@ -73,7 +106,7 @@ const Billing = () => {
   const handleClosePaymentForm = (updated: boolean) => {
     setSelectedInvoiceForPayment(null);
     if (updated) {
-      // Refresh invoice list
+      setRefreshKey((k) => k + 1);
     }
   };
 
@@ -84,6 +117,7 @@ const Billing = () => {
   return (
     <>
       <InvoiceList
+        key={refreshKey}
         onAddInvoice={handleAddInvoice}
         onViewInvoice={handleViewInvoice}
         onRecordPayment={handleRecordPayment}
@@ -108,6 +142,7 @@ const Inventory = () => {
   const [showAdjustmentForm, setShowAdjustmentForm] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
   const [itemForHistory, setItemForHistory] = useState<any>(null);
+  const [refreshKey, setRefreshKey] = useState(0);
 
   const handleAddItem = () => {
     setSelectedItem(null);
@@ -123,7 +158,7 @@ const Inventory = () => {
     setShowItemForm(false);
     setSelectedItem(null);
     if (saved) {
-      // Refresh inventory list
+      setRefreshKey((k) => k + 1);
     }
   };
 
@@ -136,7 +171,7 @@ const Inventory = () => {
     setShowAdjustmentForm(false);
     setSelectedItem(null);
     if (updated) {
-      // Refresh inventory list
+      setRefreshKey((k) => k + 1);
     }
   };
 
@@ -153,6 +188,7 @@ const Inventory = () => {
   return (
     <>
       <InventoryList
+        key={refreshKey}
         onAddItem={handleAddItem}
         onEditItem={handleEditItem}
         onAdjustStock={handleAdjustStock}

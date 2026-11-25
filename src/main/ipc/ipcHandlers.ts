@@ -45,7 +45,7 @@ export function setupIpcHandlers(ipcMain: IpcMain, dbManager: DatabaseManager): 
   // ==================== Authentication Handlers ====================
   ipcMain.handle('auth:login', async (event, username: string, password: string) => {
     try {
-      const result = authService.authenticate(username, password);
+      const result = await authService.authenticate(username, password);
       return { success: true, data: result };
     } catch (error) {
       logger.error('Login failed', { error, username });
@@ -146,7 +146,7 @@ export function setupIpcHandlers(ipcMain: IpcMain, dbManager: DatabaseManager): 
   // ==================== Appointment Handlers ====================
   ipcMain.handle('appointments:create', async (event, appointmentData: any, createdBy: string) => {
     try {
-      const appointment = appointmentService.createAppointment(appointmentData, createdBy);
+      const appointment = appointmentService.createAppointment({ ...appointmentData, startTime: new Date(appointmentData.startTime) }, createdBy);
       return { success: true, data: appointment };
     } catch (error) {
       logger.error('Create appointment failed', { error });
@@ -166,7 +166,12 @@ export function setupIpcHandlers(ipcMain: IpcMain, dbManager: DatabaseManager): 
 
   ipcMain.handle('appointments:update', async (event, appointmentId: string, appointmentData: any) => {
     try {
-      const appointment = appointmentService.updateAppointment(appointmentId, appointmentData);
+      const appointment = appointmentService.updateAppointment(
+        appointmentId,
+        appointmentData.startTime !== undefined
+          ? { ...appointmentData, startTime: new Date(appointmentData.startTime) }
+          : appointmentData
+      );
       return { success: true, data: appointment };
     } catch (error) {
       logger.error('Update appointment failed', { error });
@@ -186,7 +191,17 @@ export function setupIpcHandlers(ipcMain: IpcMain, dbManager: DatabaseManager): 
 
   ipcMain.handle('appointments:search', async (event, searchQuery: any) => {
     try {
-      const appointments = appointmentService.searchAppointments(searchQuery);
+      const appointments = appointmentService.searchAppointments(
+        searchQuery && searchQuery.dateRange
+          ? {
+              ...searchQuery,
+              dateRange: {
+                start: new Date(searchQuery.dateRange.start),
+                end: new Date(searchQuery.dateRange.end),
+              },
+            }
+          : searchQuery || {}
+      );
       return { success: true, data: appointments };
     } catch (error) {
       logger.error('Search appointments failed', { error });
@@ -367,7 +382,17 @@ export function setupIpcHandlers(ipcMain: IpcMain, dbManager: DatabaseManager): 
 
   ipcMain.handle('billing:searchInvoices', async (event, searchQuery: any) => {
     try {
-      const invoices = billingService.searchInvoices(searchQuery);
+      const invoices = billingService.searchInvoices(
+        searchQuery && searchQuery.dateRange
+          ? {
+              ...searchQuery,
+              dateRange: {
+                start: new Date(searchQuery.dateRange.start),
+                end: new Date(searchQuery.dateRange.end),
+              },
+            }
+          : searchQuery || {}
+      );
       return { success: true, data: invoices };
     } catch (error) {
       logger.error('Search invoices failed', { error });
@@ -438,7 +463,7 @@ export function setupIpcHandlers(ipcMain: IpcMain, dbManager: DatabaseManager): 
 
   ipcMain.handle('inventory:search', async (event, searchQuery: any) => {
     try {
-      const items = inventoryService.searchItems(searchQuery);
+      const items = inventoryService.searchItems(searchQuery || {});
       return { success: true, data: items };
     } catch (error) {
       logger.error('Search inventory failed', { error });

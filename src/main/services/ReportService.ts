@@ -77,6 +77,9 @@ export interface DashboardAnalytics {
   dailyRevenue: number;
   appointmentCount: number;
   pendingTreatments: number;
+  totalPatients: number;
+  lowStockItems: number;
+  completedAppointments: number;
   date: Date;
 }
 
@@ -612,12 +615,25 @@ export class ReportService {
          WHERE status IN ('Planned', 'In Progress')`
       );
 
+      const patientRow = this.db.executeQueryOne<any>('SELECT COUNT(*) as count FROM patients');
+      const lowStockRow = this.db.executeQueryOne<any>(
+        'SELECT COUNT(*) as count FROM inventory_items WHERE current_quantity < minimum_threshold'
+      );
+      const completedRow = this.db.executeQueryOne<any>(
+        `SELECT COUNT(*) as count FROM appointments
+         WHERE status = 'Completed' AND start_time >= ? AND start_time <= ?`,
+        [startOfDay.toISOString(), endOfDay.toISOString()]
+      );
+
       logger.info('Dashboard analytics retrieved', { date });
 
       return {
         dailyRevenue: revenueRow?.revenue || 0,
         appointmentCount: appointmentRow?.count || 0,
         pendingTreatments: treatmentRow?.count || 0,
+        totalPatients: patientRow?.count || 0,
+        lowStockItems: lowStockRow?.count || 0,
+        completedAppointments: completedRow?.count || 0,
         date,
       };
     } catch (error) {

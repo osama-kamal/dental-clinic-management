@@ -25,6 +25,7 @@ import { ipcClient } from '../../api/ipcClient';
 import { useAuth } from '../../context/AuthContext';
 
 interface InvoiceItem {
+  treatmentId?: string;
   description: string;
   quantity: number;
   unitPrice: number;
@@ -74,6 +75,27 @@ export const InvoiceForm: React.FC<InvoiceFormProps> = ({
     }
   }, [treatmentPlanId]);
 
+  // Without a plan id, load the selected patient's treatments as the invoice items.
+  useEffect(() => {
+    if (treatmentPlanId || !patientId) return;
+    (async () => {
+      const res = await ipcClient.getTreatmentsByPatient(patientId);
+      if (res.success && Array.isArray(res.data)) {
+        const list: InvoiceItem[] = res.data
+          .flatMap((plan: any) => plan.treatments || [])
+          .filter((t: any) => t.status !== 'Cancelled')
+          .map((t: any) => ({
+            treatmentId: t.id,
+            description: `${t.code} - ${t.description}`,
+            quantity: 1,
+            unitPrice: t.estimatedCost,
+            total: t.estimatedCost,
+          }));
+        setItems(list);
+      }
+    })();
+  }, [patientId, treatmentPlanId]);
+
   const loadInitialData = async () => {
     setLoadingData(true);
     try {
@@ -96,7 +118,8 @@ export const InvoiceForm: React.FC<InvoiceFormProps> = ({
       if (response.success && response.data) {
         const plan = response.data;
         const invoiceItems: InvoiceItem[] = plan.treatments.map((t: any) => ({
-          description: `${t.treatmentCode} - ${t.description}${t.tooth ? ` (Tooth ${t.tooth})` : ''}`,
+          description: `${t.code} - ${t.description}${t.tooth ? ` (Tooth ${t.tooth})` : ''}`,
+          treatmentId: t.id,
           quantity: 1,
           unitPrice: t.actualCost || t.estimatedCost,
           total: t.actualCost || t.estimatedCost,

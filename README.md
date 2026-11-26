@@ -1,270 +1,139 @@
-# Dental Clinic Management System
+# Dental Clinic Management
 
-**Production-ready offline desktop application for dental clinic management**
+An offline-first desktop app for running a dental clinic: patients, appointments, treatment planning with a tooth chart, billing, inventory and reports. The same code also builds as a browser demo.
 
-[![Version](https://img.shields.io/badge/version-1.0.0-blue.svg)](https://github.com/yourusername/dental-clinic-management)
-[![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE.txt)
-[![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-lightgrey.svg)](https://github.com/yourusername/dental-clinic-management)
+**Live demo:** <https://dental-clinic-demo-ten.vercel.app/>
 
-## Overview
+## Project Overview
 
-A comprehensive, offline-first desktop application built with Electron, React, and TypeScript for managing dental clinic operations. Features include patient management, appointment scheduling, treatment planning with interactive tooth chart, billing, inventory management, and analytics.
+The app is built with Electron, React and TypeScript. All data stays on the clinic's computer in a local SQLite database file (through sql.js), so it works without a network connection.
 
-## Key Features
+The `web-demo` branch adds a browser build of the same app. The main-process services run inside the page, and the database file is kept in your own browser's IndexedDB. That is what the live demo runs. Nothing you enter in the demo leaves your browser.
 
-### 🦷 Patient Management
-- Complete patient records with medical history
-- Allergy warnings and critical condition alerts
-- Clinical notes with modification history
-- Document attachments (JPEG, PNG, PDF)
-- Advanced search and filtering
+Status: working application with an automated test suite. It is a portfolio project and has not been used in a real clinic. Installers are not published, you build them yourself (see below).
 
-### 📅 Appointment Scheduling
-- Interactive calendar (day/week/month views)
-- Real-time conflict detection
-- Color-coded status indicators
-- Automated reminders (24 hours before)
-- Comprehensive filtering options
+## Features
 
-### 🔬 Treatment Planning
-- Interactive tooth chart (32 teeth)
-- Treatment template library
-- Automatic cost calculation
-- Status tracking (Planned → In Progress → Completed)
-- Complete treatment history
+- **Patients:** records with medical history, allergy warnings, clinical notes and document attachments (JPEG, PNG, PDF).
+- **Appointments:** day, week and month calendar, conflict detection and status colors. In-app reminders for appointments about 24 hours ahead.
+- **Treatment planning:** interactive 32-tooth chart (universal numbering), treatment templates, cost estimates and status tracking.
+- **Billing:** invoices from completed treatments, payments (cash, credit card, debit card, check, insurance), discounts that need authorization depending on the amount, and PDF export.
+- **Inventory:** stock levels, low-stock warnings, transaction history and stock adjustments.
+- **Reports:** dashboard KPIs, daily appointments, revenue, patient visit history and inventory reports, with PDF and CSV export.
+- **Accounts and roles:** Administrator, Dentist and Receptionist roles with permissions, bcrypt password hashing and a 30-minute session timeout.
+- **Backups:** automatic daily backup at 02:00 in the desktop app, keeping the last 30 backups, and a database integrity check.
 
-### 💰 Billing & Invoicing
-- Automated invoice generation
-- Multiple payment methods
-- Discount management with authorization
-- PDF export for printing
-- Payment history tracking
+## Tech Stack
 
-### 📦 Inventory Management
-- Real-time stock tracking
-- Low stock warnings
-- Transaction history
-- Stock adjustment with authorization
-- Category-based organization
+| Layer | Technology |
+| --- | --- |
+| Language | TypeScript |
+| Desktop shell | Electron 28 |
+| UI | React 18, Material UI, MUI date pickers |
+| Database | SQLite through sql.js (WebAssembly) |
+| PDF | pdfkit |
+| Auth | bcrypt (bcryptjs in the browser build) |
+| Build | Vite, electron-builder |
+| Tests | Jest, Testing Library, fast-check (property-based tests) |
 
-### 📊 Reports & Analytics
-- Dashboard with KPIs
-- Daily appointment reports
-- Revenue analysis
-- Patient visit history
-- Inventory reports
-- PDF/CSV export
+## Architecture
 
-### 🔒 Security & Access Control
-- Role-based permissions (Administrator, Dentist, Receptionist)
-- Bcrypt password hashing
-- Session management (30-minute timeout)
-- Audit trail for all actions
+```
+Electron app (desktop)                       Browser demo (web-demo branch)
+-----------------------                      ------------------------------
+Renderer: React UI  (src/renderer)           Same React UI
+      | IPC                                        | calls the same handlers in the page
+      v                                            v
+Main process (src/main)                      src/web/bootstrap.ts
+  ipc/ipcHandlers.ts                           shims: electron, fs, crypto
+  services/ Auth, Patient, Appointment,        seeds made-up sample data
+            Treatment, Billing, Inventory,
+            ClinicalNotes, Report
+      |                                            |
+      v                                            v
+DatabaseManager (sql.js) --> clinic.db       DatabaseManager (sql.js) --> IndexedDB
+  in the app's user-data folder                (private to each visitor's browser)
+```
 
-### 💾 Data Management
-- Automatic daily backups
-- 30-day backup retention
-- Database integrity checks
-- Easy restore functionality
-- SQLite with WAL mode
+```
+src/
+  main/        Electron main process: IPC handlers, services, auth middleware
+  renderer/    React UI: components for each module
+  database/    DatabaseManager: schema, migrations, backups
+  shared/      Types used by both sides
+  web/         Browser demo entry, shims and IndexedDB persistence (web-demo branch)
+```
 
-## Technology Stack
+- The renderer never touches the database. It calls the main process through IPC, and the services hold the business rules (conflict checks, discount authorization, stock rules).
+- Role permissions are checked in `authMiddleware`.
+- sql.js runs SQLite in memory and writes the database file after changes. The browser demo reuses the same services and swaps in small browser versions of the Node modules.
 
-- **Frontend**: React 18, TypeScript, Material-UI
-- **Backend**: Electron, Node.js
-- **Database**: SQLite (better-sqlite3)
-- **Testing**: Jest, fast-check (Property-Based Testing)
-- **Build**: Vite, electron-builder
+## Screenshots
 
-## System Requirements
+Taken from the live demo (made-up sample data).
 
-### Minimum
-- Windows 10 (64-bit) or Windows 11
-- 4GB RAM
-- 500MB free disk space
-- 1366x768 screen resolution
-- Intel Core i3 or equivalent
+| Dashboard | Patients |
+| --- | --- |
+| ![Dashboard](docs/screenshots/dashboard.jpg) | ![Patients](docs/screenshots/patients.jpg) |
 
-### Recommended
-- Windows 11 (64-bit)
-- 8GB RAM
-- 2GB free disk space
-- 1920x1080 screen resolution
-- Intel Core i5 or equivalent
-- SSD for better performance
+| Appointments | Billing |
+| --- | --- |
+| ![Appointments](docs/screenshots/appointments.jpg) | ![Billing](docs/screenshots/billing.jpg) |
 
-## Installation
+| Inventory |
+| --- |
+| ![Inventory](docs/screenshots/inventory.jpg) |
 
-### For End Users
+| Mobile dashboard | Mobile patients |
+| --- | --- |
+| <img src="docs/screenshots/mobile-dashboard.jpg" width="240" alt="Mobile dashboard"> | <img src="docs/screenshots/mobile-patients.jpg" width="240" alt="Mobile patients"> |
 
-1. Download the installer: `Dental-Clinic-Management-Setup-1.0.0.exe`
-2. Run the installer and follow the prompts
-3. Launch the application
-4. Login with default credentials:
-   - Username: `admin`
-   - Password: `admin123`
-5. **Change the password immediately**
+## Live Demo
 
-For detailed installation instructions, see [DEPLOYMENT.md](DEPLOYMENT.md)
+<https://dental-clinic-demo-ten.vercel.app/>
 
-### For Developers
+Click "Try the demo as admin". The demo is a browser version with made-up data. Everything is stored in your own browser, so each visitor has a private copy, and clearing site data resets it. It runs on Vercel's free tier from the `web-demo` branch.
+
+Differences from the desktop app: no automatic file backups, and data lives in IndexedDB instead of a file in the app's user-data folder.
+
+## Installation & Setup
+
+Requirements: a current Node.js LTS and npm. Electron is installed by `npm install`.
 
 ```bash
-# Clone repository
-git clone <repository-url>
+git clone https://github.com/osama-kamal/dental-clinic-management.git
 cd dental-clinic-management
-
-# Install dependencies
 npm install
-
-# Run in development mode
-npm run dev
-
-# Build for production
-npm run build
-
-# Package for Windows
-npm run package:win
-
-# Run tests
-npm test
-
-# Run with coverage
-npm run test:coverage
+npm run dev        # renderer, main-process watcher and Electron together
 ```
 
-## Development
-
-### Project Structure
-
-```
-dental-clinic-management/
-├── src/
-│   ├── main/              # Electron main process
-│   │   ├── ipc/           # IPC handlers
-│   │   ├── services/      # Business logic services
-│   │   ├── middleware/    # Authentication middleware
-│   │   └── utils/         # Utilities
-│   ├── renderer/          # React frontend
-│   │   ├── components/    # UI components
-│   │   ├── context/       # React context
-│   │   └── api/           # IPC client
-│   ├── database/          # Database manager
-│   └── shared/            # Shared types
-├── .kiro/specs/           # Specification documents
-├── dist/                  # Build output
-├── release/               # Packaged applications
-└── tests/                 # Test files
-```
-
-### Available Scripts
+Other commands:
 
 ```bash
-npm run dev              # Start development server
-npm run build            # Build for production
-npm run package:win      # Package for Windows
-npm run package:mac      # Package for macOS
-npm run package:linux    # Package for Linux
-npm run dist             # Package for all platforms
-npm test                 # Run tests
-npm run test:watch       # Run tests in watch mode
-npm run test:coverage    # Run tests with coverage
-npm run lint             # Lint code
+npm test                 # Jest and property-based tests
+npm run lint
+npm run build            # build renderer and main process
+npm run package:win      # also package:mac, package:linux (electron-builder, output in release/)
 ```
 
-## Testing
+On first run the app creates a default Administrator account if no users exist (see `src/main/main.ts`). Sign in, then change that password right away.
 
-The application includes comprehensive testing:
+### Run the browser demo locally
 
-- **83 Property-Based Tests**: Validate universal correctness properties
-- **Unit Tests**: Test specific functionality
-- **Integration Tests**: Test end-to-end workflows
+This build is on the `web-demo` branch.
 
 ```bash
-# Run all tests
-npm test
-
-# Run with coverage
-npm run test:coverage
-
-# Run in watch mode
-npm run test:watch
+git checkout web-demo
+npm install
+npm run build:web        # output in dist/web
 ```
 
-## Documentation
+The hosted demo uses `npm run build:web && cp dist/web/web.html dist/web/index.html` as the build command, with `dist/web` as the output directory and `npm ci --ignore-scripts` as the install command.
 
-- [Production Checklist](PRODUCTION_CHECKLIST.md) - Pre-deployment checklist
-- [Deployment Guide](DEPLOYMENT.md) - Installation and deployment instructions
-- [Frontend Guide](FRONTEND_GUIDE.md) - Frontend development patterns
+## Environment Variables
 
-## Features in Detail
-
-### Offline-First Architecture
-- No internet connection required
-- All data stored locally in SQLite
-- Fast and responsive
-- Complete privacy and security
-
-### Property-Based Testing
-- 83 correctness properties validated
-- Automated test generation with fast-check
-- High confidence in code correctness
-- Catches edge cases automatically
-
-### Performance Optimizations
-- UI responds within 100ms
-- Database operations in main process
-- Pagination for large datasets
-- Virtual scrolling for performance
-- Optimized queries with indexes
-
-### Data Integrity
-- ACID transactions
-- Referential integrity enforced
-- Optimistic locking for concurrency
-- Automatic rollback on errors
-- Database integrity checks
-
-## Security
-
-- **Authentication**: Bcrypt password hashing (cost factor 10)
-- **Authorization**: Role-based access control
-- **Session Management**: 30-minute timeout
-- **Data Protection**: Local storage only
-- **Audit Trail**: All actions logged
-- **Backup**: Automatic daily backups
-
-## Building for Production
-
-```bash
-# Build and package for Windows
-npm run package:win
-
-# Output will be in release/ directory
-# File: Dental-Clinic-Management-Setup-1.0.0.exe
-# Size: ~200-250MB
-```
-
-See [PRODUCTION_CHECKLIST.md](PRODUCTION_CHECKLIST.md) for complete build checklist.
+None are required. The app has no `.env` file and no API keys. The code only reads `NODE_ENV` (set by the build scripts). The database and backup folders come from Electron's user-data path.
 
 ## License
 
-This project is licensed under the MIT License - see the [LICENSE.txt](LICENSE.txt) file for details.
-
-## Version History
-
-### Version 1.0.0 (Initial Release)
-- Complete patient management system
-- Appointment scheduling with calendar
-- Treatment planning with interactive tooth chart
-- Billing and invoicing with PDF export
-- Inventory management with alerts
-- Reports and analytics dashboard
-- Offline operation
-- Automatic backups
-- Role-based access control
-- 83 property-based tests
-
----
-
-**Made with ❤️ for dental clinics**
+MIT, see `LICENSE.txt`.

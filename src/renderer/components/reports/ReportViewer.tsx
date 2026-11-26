@@ -86,7 +86,7 @@ export const ReportViewer: React.FC<ReportViewerProps> = ({ report, reportType }
               <TableBody>
                 {report.appointments.map((apt: any, index: number) => (
                   <TableRow key={index}>
-                    <TableCell>{apt.time}</TableCell>
+                    <TableCell>{new Date(apt.startTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</TableCell>
                     <TableCell>{apt.patientName}</TableCell>
                     <TableCell>{apt.dentistName}</TableCell>
                     <TableCell>{apt.appointmentType}</TableCell>
@@ -110,7 +110,7 @@ export const ReportViewer: React.FC<ReportViewerProps> = ({ report, reportType }
           Revenue Report
         </Typography>
         <Typography variant="body2" color="text.secondary" gutterBottom>
-          {new Date(report.startDate).toLocaleDateString()} - {new Date(report.endDate).toLocaleDateString()}
+          {new Date(report.dateRange?.start ?? report.startDate).toLocaleDateString()} - {new Date(report.dateRange?.end ?? report.endDate).toLocaleDateString()}
         </Typography>
 
         <Paper sx={{ p: 3, mb: 3, bgcolor: 'primary.light' }}>
@@ -120,22 +120,22 @@ export const ReportViewer: React.FC<ReportViewerProps> = ({ report, reportType }
           </Typography>
         </Paper>
 
-        {report.breakdown && report.breakdown.length > 0 && (
+        {report.groups && report.groups.length > 0 && (
           <TableContainer>
             <Table>
               <TableHead>
                 <TableRow>
-                  <TableCell>{report.groupBy || 'Category'}</TableCell>
+                  <TableCell>{report.groupBy && report.groupBy !== 'none' ? report.groupBy : 'Group'}</TableCell>
                   <TableCell align="right">Revenue</TableCell>
-                  <TableCell align="right">Count</TableCell>
+                  <TableCell align="right">Invoices</TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
-                {report.breakdown.map((item: any, index: number) => (
+                {report.groups.map((item: any, index: number) => (
                   <TableRow key={index}>
-                    <TableCell>{item.label}</TableCell>
+                    <TableCell>{item.groupName}</TableCell>
                     <TableCell align="right">${item.revenue?.toFixed(2) || '0.00'}</TableCell>
-                    <TableCell align="right">{item.count || 0}</TableCell>
+                    <TableCell align="right">{item.invoiceCount || 0}</TableCell>
                   </TableRow>
                 ))}
               </TableBody>
@@ -174,7 +174,7 @@ export const ReportViewer: React.FC<ReportViewerProps> = ({ report, reportType }
                     <TableCell>{new Date(visit.date).toLocaleDateString()}</TableCell>
                     <TableCell>{visit.appointmentType}</TableCell>
                     <TableCell>{visit.dentistName}</TableCell>
-                    <TableCell>{visit.treatment || '-'}</TableCell>
+                    <TableCell>{Array.isArray(visit.treatments) && visit.treatments.length > 0 ? visit.treatments.join(', ') : '-'}</TableCell>
                     <TableCell>
                       <Chip label={visit.status} size="small" />
                     </TableCell>
@@ -197,24 +197,24 @@ export const ReportViewer: React.FC<ReportViewerProps> = ({ report, reportType }
           Inventory Report
         </Typography>
 
-        {report.summary && (
+        {report.items && (
           <Grid container spacing={2} sx={{ mb: 3 }}>
             <Grid item xs={12} sm={4}>
               <Paper sx={{ p: 2, textAlign: 'center' }}>
                 <Typography variant="body2" color="text.secondary">Total Items</Typography>
-                <Typography variant="h4">{report.summary.totalItems || 0}</Typography>
+                <Typography variant="h4">{report.items.length}</Typography>
               </Paper>
             </Grid>
             <Grid item xs={12} sm={4}>
               <Paper sx={{ p: 2, textAlign: 'center', bgcolor: 'warning.light' }}>
                 <Typography variant="body2">Low Stock</Typography>
-                <Typography variant="h4">{report.summary.lowStockItems || 0}</Typography>
+                <Typography variant="h4">{report.lowStockCount || 0}</Typography>
               </Paper>
             </Grid>
             <Grid item xs={12} sm={4}>
               <Paper sx={{ p: 2, textAlign: 'center', bgcolor: 'success.light' }}>
                 <Typography variant="body2">Total Value</Typography>
-                <Typography variant="h4">${report.summary.totalValue?.toFixed(2) || '0.00'}</Typography>
+                <Typography variant="h4">${report.totalValue?.toFixed(2) || '0.00'}</Typography>
               </Paper>
             </Grid>
           </Grid>
@@ -236,16 +236,16 @@ export const ReportViewer: React.FC<ReportViewerProps> = ({ report, reportType }
               <TableBody>
                 {report.items.map((item: any, index: number) => (
                   <TableRow key={index}>
-                    <TableCell>{item.itemName}</TableCell>
+                    <TableCell>{item.name}</TableCell>
                     <TableCell>{item.category}</TableCell>
-                    <TableCell align="right">{item.currentQuantity} {item.unit}</TableCell>
+                    <TableCell align="right">{item.currentQuantity}</TableCell>
                     <TableCell align="right">${item.unitCost?.toFixed(2)}</TableCell>
                     <TableCell align="right">${item.totalValue?.toFixed(2)}</TableCell>
                     <TableCell>
                       <Chip 
-                        label={item.status} 
+                        label={item.isLowStock ? 'Low Stock' : 'In Stock'} 
                         size="small" 
-                        color={item.status === 'Low Stock' ? 'warning' : 'success'}
+                        color={item.isLowStock ? 'warning' : 'success'}
                       />
                     </TableCell>
                   </TableRow>

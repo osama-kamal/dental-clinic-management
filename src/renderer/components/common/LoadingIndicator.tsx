@@ -72,7 +72,7 @@ export const ProgressBar: React.FC<ProgressBarProps> = ({
 }) => {
   return (
     <Box sx={{ width: '100%' }}>
-      {message && (
+      {(message || showPercentage) && (
         <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
           <Typography variant="body2" color="text.secondary">
             {message}

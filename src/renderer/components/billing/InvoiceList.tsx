@@ -1,3 +1,4 @@
+import { downloadFile } from '../../utils/downloadFile';
 import React, { useState, useEffect } from 'react';
 import {
   Box,
@@ -84,9 +85,9 @@ export const InvoiceList: React.FC<InvoiceListProps> = ({
   const handleExportPDF = async (invoiceId: string) => {
     try {
       const response = await ipcClient.generateInvoicePDF(invoiceId);
-      if (response.success) {
-        // PDF generated successfully
-        alert('PDF generated successfully');
+      if (response.success && response.data) {
+        downloadFile(response.data, 'application/pdf', `${invoices.find((i) => i.id === invoiceId)?.invoiceNumber || 'invoice'}.pdf`);
+        alert('Invoice PDF downloaded');
       } else {
         setError(response.error || 'Failed to generate PDF');
       }
@@ -110,7 +111,7 @@ export const InvoiceList: React.FC<InvoiceListProps> = ({
 
   return (
     <Box>
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 1, mb: 3 }}>
         <Typography variant="h4">Invoices</Typography>
         <Box sx={{ display: 'flex', gap: 1 }}>
           <Button

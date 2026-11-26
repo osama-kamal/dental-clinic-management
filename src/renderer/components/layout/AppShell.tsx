@@ -173,8 +173,10 @@ export const AppShell: React.FC<AppShellProps> = ({ children, currentPage, onNav
         component="main"
         sx={{
           flexGrow: 1,
-          p: 3,
-          width: { sm: `calc(100% - ${drawerWidth}px)` },
+          p: { xs: 1.5, sm: 3 },
+          // minWidth 0 lets wide tables scroll inside their own container instead of widening the page
+          minWidth: 0,
+          width: { xs: '100%', sm: `calc(100% - ${drawerWidth}px)` },
         }}
       >
         <Toolbar />

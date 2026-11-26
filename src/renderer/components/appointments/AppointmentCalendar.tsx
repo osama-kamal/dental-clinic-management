@@ -252,7 +252,7 @@ export const AppointmentCalendar: React.FC<AppointmentCalendarProps> = ({
     });
 
     return (
-      <Box sx={{ display: 'flex', gap: 1, overflowX: 'auto' }}>
+      <Box sx={{ display: 'flex', flexDirection: { xs: 'column', md: 'row' }, gap: 1, overflowX: 'auto' }}>
         {weekDays.map((day) => {
           const dayAppointments = appointments.filter((apt) => {
             const aptDate = new Date(apt.appointmentDate);
@@ -265,23 +265,30 @@ export const AppointmentCalendar: React.FC<AppointmentCalendarProps> = ({
             <Paper
               key={day.toISOString()}
               sx={{
-                minWidth: 150,
+                minWidth: { md: 150 },
                 flex: 1,
-                p: 2,
+                p: { xs: 1, md: 2 },
+                // on phones each day is one compact row: date on the left, appointments on the right
+                display: 'flex',
+                flexDirection: { xs: 'row', md: 'column' },
+                alignItems: { xs: 'center', md: 'stretch' },
+                gap: { xs: 1.5, md: 0 },
                 bgcolor: isToday ? 'primary.light' : 'background.paper',
               }}
             >
-              <Typography
-                variant="subtitle2"
-                align="center"
-                sx={{ mb: 1, fontWeight: isToday ? 'bold' : 'normal' }}
-              >
-                {day.toLocaleDateString('en-US', { weekday: 'short' })}
-              </Typography>
-              <Typography variant="h6" align="center" sx={{ mb: 2 }}>
-                {day.getDate()}
-              </Typography>
-              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+              <Box sx={{ minWidth: { xs: 44, md: 0 } }}>
+                <Typography
+                  variant="subtitle2"
+                  align="center"
+                  sx={{ mb: { xs: 0, md: 1 }, fontWeight: isToday ? 'bold' : 'normal' }}
+                >
+                  {day.toLocaleDateString('en-US', { weekday: 'short' })}
+                </Typography>
+                <Typography variant="h6" align="center" sx={{ mb: { xs: 0, md: 2 } }}>
+                  {day.getDate()}
+                </Typography>
+              </Box>
+              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, minWidth: 0 }}>
                 {dayAppointments.map((apt) => (
                   <Chip
                     key={apt.id}
@@ -325,7 +332,7 @@ export const AppointmentCalendar: React.FC<AppointmentCalendarProps> = ({
       <Box
         sx={{
           display: 'grid',
-          gridTemplateColumns: 'repeat(7, 1fr)',
+          gridTemplateColumns: 'repeat(7, minmax(0, 1fr))',
           gap: 1,
         }}
       >
@@ -384,7 +391,7 @@ export const AppointmentCalendar: React.FC<AppointmentCalendarProps> = ({
 
   return (
     <Box>
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 1, mb: 3 }}>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
           <CalendarMonth color="primary" fontSize="large" />
           <Typography variant="h4">Appointments</Typography>
@@ -401,7 +408,7 @@ export const AppointmentCalendar: React.FC<AppointmentCalendarProps> = ({
       )}
 
       <Paper sx={{ p: 2, mb: 2 }}>
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 1, mb: 2 }}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
             <IconButton onClick={navigatePrevious}>
               <ChevronLeft />

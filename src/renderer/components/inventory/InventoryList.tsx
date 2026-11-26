@@ -119,7 +119,7 @@ export const InventoryList: React.FC<InventoryListProps> = ({
 
   return (
     <Box>
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 1, mb: 3 }}>
         <Box>
           <Typography variant="h4">Inventory Management</Typography>
           {lowStockCount > 0 && (

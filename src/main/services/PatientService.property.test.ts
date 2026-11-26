@@ -1,4 +1,5 @@
 import fc from 'fast-check';
+import { resetData } from '../../test/dataReset';
 import { PatientService, PatientInput } from './PatientService';
 import { DatabaseManager } from '../../database/DatabaseManager';
 import path from 'path';
@@ -39,9 +40,9 @@ describe('PatientService Property Tests', () => {
       fc.assert(
         fc.property(
           fc.record({
-            lastName: fc.string({ minLength: 1, maxLength: 50 }),
+            lastName: fc.string({ minLength: 1, maxLength: 50 }).filter((s) => s.trim().length > 0).map((s) => s.trim()),
             dateOfBirth: fc.date({ max: new Date() }),
-            phone: fc.string({ minLength: 10, maxLength: 15 }),
+            phone: fc.string({ minLength: 10, maxLength: 15 }).filter((s) => s.trim().length > 0).map((s) => s.trim()),
           }),
           (data) => {
             const invalidData = {
@@ -55,7 +56,7 @@ describe('PatientService Property Tests', () => {
               patientService.createPatient(invalidData);
             }).toThrow('First name is required');
           }
-        ),
+        ).beforeEach(() => { resetData(db); }),
         { numRuns: 100 }
       );
     });
@@ -64,9 +65,9 @@ describe('PatientService Property Tests', () => {
       fc.assert(
         fc.property(
           fc.record({
-            firstName: fc.string({ minLength: 1, maxLength: 50 }),
+            firstName: fc.string({ minLength: 1, maxLength: 50 }).filter((s) => s.trim().length > 0).map((s) => s.trim()),
             dateOfBirth: fc.date({ max: new Date() }),
-            phone: fc.string({ minLength: 10, maxLength: 15 }),
+            phone: fc.string({ minLength: 10, maxLength: 15 }).filter((s) => s.trim().length > 0).map((s) => s.trim()),
           }),
           (data) => {
             const invalidData = {
@@ -80,7 +81,7 @@ describe('PatientService Property Tests', () => {
               patientService.createPatient(invalidData);
             }).toThrow('Last name is required');
           }
-        ),
+        ).beforeEach(() => { resetData(db); }),
         { numRuns: 100 }
       );
     });
@@ -89,9 +90,9 @@ describe('PatientService Property Tests', () => {
       fc.assert(
         fc.property(
           fc.record({
-            firstName: fc.string({ minLength: 1, maxLength: 50 }),
-            lastName: fc.string({ minLength: 1, maxLength: 50 }),
-            phone: fc.string({ minLength: 10, maxLength: 15 }),
+            firstName: fc.string({ minLength: 1, maxLength: 50 }).filter((s) => s.trim().length > 0).map((s) => s.trim()),
+            lastName: fc.string({ minLength: 1, maxLength: 50 }).filter((s) => s.trim().length > 0).map((s) => s.trim()),
+            phone: fc.string({ minLength: 10, maxLength: 15 }).filter((s) => s.trim().length > 0).map((s) => s.trim()),
           }),
           (data) => {
             const invalidData = {
@@ -105,7 +106,7 @@ describe('PatientService Property Tests', () => {
               patientService.createPatient(invalidData);
             }).toThrow('Date of birth is required');
           }
-        ),
+        ).beforeEach(() => { resetData(db); }),
         { numRuns: 100 }
       );
     });
@@ -114,8 +115,8 @@ describe('PatientService Property Tests', () => {
       fc.assert(
         fc.property(
           fc.record({
-            firstName: fc.string({ minLength: 1, maxLength: 50 }),
-            lastName: fc.string({ minLength: 1, maxLength: 50 }),
+            firstName: fc.string({ minLength: 1, maxLength: 50 }).filter((s) => s.trim().length > 0).map((s) => s.trim()),
+            lastName: fc.string({ minLength: 1, maxLength: 50 }).filter((s) => s.trim().length > 0).map((s) => s.trim()),
             dateOfBirth: fc.date({ max: new Date() }),
           }),
           (data) => {
@@ -130,7 +131,7 @@ describe('PatientService Property Tests', () => {
               patientService.createPatient(invalidData);
             }).toThrow('Phone is required');
           }
-        ),
+        ).beforeEach(() => { resetData(db); }),
         { numRuns: 100 }
       );
     });
@@ -139,10 +140,10 @@ describe('PatientService Property Tests', () => {
       fc.assert(
         fc.property(
           fc.record({
-            firstName: fc.string({ minLength: 1, maxLength: 50 }),
-            lastName: fc.string({ minLength: 1, maxLength: 50 }),
+            firstName: fc.string({ minLength: 1, maxLength: 50 }).filter((s) => s.trim().length > 0).map((s) => s.trim()),
+            lastName: fc.string({ minLength: 1, maxLength: 50 }).filter((s) => s.trim().length > 0).map((s) => s.trim()),
             dateOfBirth: fc.date({ max: new Date() }),
-            phone: fc.string({ minLength: 10, maxLength: 15 }),
+            phone: fc.string({ minLength: 10, maxLength: 15 }).filter((s) => s.trim().length > 0).map((s) => s.trim()),
           }),
           (data) => {
             const patient = patientService.createPatient(data);
@@ -150,9 +151,9 @@ describe('PatientService Property Tests', () => {
             expect(patient.id).toBeDefined();
             expect(patient.firstName).toBe(data.firstName);
             expect(patient.lastName).toBe(data.lastName);
-            expect(patient.phone).toBe(data.phone);
+            expect(patient.phone).toBe(data.phone.trim());
           }
-        ),
+        ).beforeEach(() => { resetData(db); }),
         { numRuns: 100 }
       );
     });
@@ -169,15 +170,15 @@ describe('PatientService Property Tests', () => {
       fc.assert(
         fc.property(
           fc.record({
-            firstName: fc.string({ minLength: 1, maxLength: 50 }),
-            lastName: fc.string({ minLength: 1, maxLength: 50 }),
+            firstName: fc.string({ minLength: 1, maxLength: 50 }).filter((s) => s.trim().length > 0).map((s) => s.trim()),
+            lastName: fc.string({ minLength: 1, maxLength: 50 }).filter((s) => s.trim().length > 0).map((s) => s.trim()),
             dateOfBirth: fc.date({ max: new Date() }),
-            phone: fc.string({ minLength: 10, maxLength: 15 }),
-            email: fc.option(fc.emailAddress()),
-            address: fc.option(fc.string({ maxLength: 200 })),
-            allergies: fc.option(fc.array(fc.string({ maxLength: 50 }), { maxLength: 10 })),
-            medicalConditions: fc.option(fc.array(fc.string({ maxLength: 50 }), { maxLength: 10 })),
-            currentMedications: fc.option(fc.array(fc.string({ maxLength: 50 }), { maxLength: 10 })),
+            phone: fc.string({ minLength: 10, maxLength: 15 }).filter((s) => s.trim().length > 0).map((s) => s.trim()),
+            email: fc.option(fc.emailAddress(), { nil: undefined }),
+            address: fc.option(fc.string({ maxLength: 200 }), { nil: undefined }),
+            allergies: fc.option(fc.array(fc.string({ maxLength: 50 }), { maxLength: 10 }), { nil: undefined }),
+            medicalConditions: fc.option(fc.array(fc.string({ maxLength: 50 }), { maxLength: 10 }), { nil: undefined }),
+            currentMedications: fc.option(fc.array(fc.string({ maxLength: 50 }), { maxLength: 10 }), { nil: undefined }),
           }),
           (patientData) => {
             // Create patient
@@ -196,9 +197,9 @@ describe('PatientService Property Tests', () => {
             expect(retrieved!.id).toBe(created.id);
             expect(retrieved!.firstName).toBe(patientData.firstName);
             expect(retrieved!.lastName).toBe(patientData.lastName);
-            expect(retrieved!.phone).toBe(patientData.phone);
-            expect(retrieved!.email).toBe(patientData.email || undefined);
-            expect(retrieved!.address).toBe(patientData.address || undefined);
+            expect(retrieved!.phone).toBe(patientData.phone.trim());
+            expect(retrieved!.email).toBe(patientData.email?.trim() || undefined);
+            expect(retrieved!.address).toBe(patientData.address?.trim() || undefined);
             
             // Compare dates (allowing for millisecond differences)
             expect(Math.abs(retrieved!.dateOfBirth.getTime() - patientData.dateOfBirth.getTime())).toBeLessThan(1000);
@@ -208,7 +209,7 @@ describe('PatientService Property Tests', () => {
             expect(retrieved!.medicalConditions).toEqual(patientData.medicalConditions || []);
             expect(retrieved!.currentMedications).toEqual(patientData.currentMedications || []);
           }
-        ),
+        ).beforeEach(() => { resetData(db); }),
         { numRuns: 100 }
       );
     });
@@ -225,10 +226,10 @@ describe('PatientService Property Tests', () => {
         fc.property(
           fc.array(
             fc.record({
-              firstName: fc.string({ minLength: 1, maxLength: 50 }),
-              lastName: fc.string({ minLength: 1, maxLength: 50 }),
+              firstName: fc.string({ minLength: 1, maxLength: 50 }).filter((s) => s.trim().length > 0).map((s) => s.trim()),
+              lastName: fc.string({ minLength: 1, maxLength: 50 }).filter((s) => s.trim().length > 0).map((s) => s.trim()),
               dateOfBirth: fc.date({ max: new Date() }),
-              phone: fc.string({ minLength: 10, maxLength: 15 }),
+              phone: fc.string({ minLength: 10, maxLength: 15 }).filter((s) => s.trim().length > 0).map((s) => s.trim()),
             }),
             { minLength: 2, maxLength: 20 }
           ),
@@ -245,7 +246,7 @@ describe('PatientService Property Tests', () => {
             const uniqueIds = new Set(patientIds);
             expect(uniqueIds.size).toBe(patientIds.length);
           }
-        ),
+        ).beforeEach(() => { resetData(db); }),
         { numRuns: 100 }
       );
     });
@@ -263,15 +264,15 @@ describe('PatientService Property Tests', () => {
         fc.property(
           fc.array(
             fc.record({
-              firstName: fc.string({ minLength: 1, maxLength: 50 }),
-              lastName: fc.string({ minLength: 1, maxLength: 50 }),
+              firstName: fc.string({ minLength: 1, maxLength: 50 }).filter((s) => s.trim().length > 0).map((s) => s.trim()),
+              lastName: fc.string({ minLength: 1, maxLength: 50 }).filter((s) => s.trim().length > 0).map((s) => s.trim()),
               dateOfBirth: fc.date({ max: new Date() }),
-              phone: fc.string({ minLength: 10, maxLength: 15 }),
-              email: fc.option(fc.emailAddress()),
+              phone: fc.string({ minLength: 10, maxLength: 15 }).filter((s) => s.trim().length > 0).map((s) => s.trim()),
+              email: fc.option(fc.emailAddress(), { nil: undefined }),
             }),
             { minLength: 5, maxLength: 20 }
           ),
-          fc.string({ minLength: 1, maxLength: 10 }),
+          fc.string({ minLength: 1, maxLength: 10 }).filter((s) => s.trim().length > 0).map((s) => s.trim()),
           (patientsData, searchQuery) => {
             // Create multiple patients
             const createdPatients = patientsData.map((data) =>
@@ -283,7 +284,7 @@ describe('PatientService Property Tests', () => {
 
             // Verify all results match the search query
             results.forEach((patient) => {
-              const query = searchQuery.toLowerCase();
+              const query = searchQuery.trim().toLowerCase();
               const matchesFirstName = patient.firstName.toLowerCase().includes(query);
               const matchesLastName = patient.lastName.toLowerCase().includes(query);
               const matchesPhone = patient.phone.toLowerCase().includes(query);
@@ -299,7 +300,7 @@ describe('PatientService Property Tests', () => {
               ).toBe(true);
             });
           }
-        ),
+        ).beforeEach(() => { resetData(db); }),
         { numRuns: 100 }
       );
     });
@@ -316,15 +317,22 @@ describe('PatientService Property Tests', () => {
       fc.assert(
         fc.property(
           fc.record({
-            firstName: fc.string({ minLength: 1, maxLength: 50 }),
-            lastName: fc.string({ minLength: 1, maxLength: 50 }),
+            firstName: fc.string({ minLength: 1, maxLength: 50 }).filter((s) => s.trim().length > 0).map((s) => s.trim()),
+            lastName: fc.string({ minLength: 1, maxLength: 50 }).filter((s) => s.trim().length > 0).map((s) => s.trim()),
             dateOfBirth: fc.date({ max: new Date() }),
-            phone: fc.string({ minLength: 10, maxLength: 15 }),
+            phone: fc.string({ minLength: 10, maxLength: 15 }).filter((s) => s.trim().length > 0).map((s) => s.trim()),
           }),
           (patientData) => {
             // Create a patient
             const patient = patientService.createPatient(patientData);
 
+            // A real user row is needed: foreign keys are enforced
+            const refUserId = 'ref-user-' + Math.random().toString(36).slice(2);
+            db.executeUpdate(
+              `INSERT INTO users (id, username, password_hash, first_name, last_name, role, is_active, created_at, updated_at)
+               VALUES (?, ?, 'hash', 'Ref', 'User', 'Dentist', 1, ?, ?)`,
+              [refUserId, refUserId, new Date().toISOString(), new Date().toISOString()]
+            );
             // Create an appointment for the patient (simulated by inserting directly)
             db.executeUpdate(
               `INSERT INTO appointments (
@@ -334,12 +342,12 @@ describe('PatientService Property Tests', () => {
               [
                 'test-appointment-id',
                 patient.id,
-                'test-dentist-id',
+                refUserId,
                 new Date().toISOString(),
                 60,
                 'Checkup',
                 'Scheduled',
-                'test-user-id',
+                refUserId,
                 new Date().toISOString(),
                 new Date().toISOString(),
               ]
@@ -350,7 +358,7 @@ describe('PatientService Property Tests', () => {
               patientService.deletePatient(patient.id);
             }).toThrow('Cannot delete patient with associated appointments');
           }
-        ),
+        ).beforeEach(() => { resetData(db); }),
         { numRuns: 100 }
       );
     });
@@ -359,15 +367,22 @@ describe('PatientService Property Tests', () => {
       fc.assert(
         fc.property(
           fc.record({
-            firstName: fc.string({ minLength: 1, maxLength: 50 }),
-            lastName: fc.string({ minLength: 1, maxLength: 50 }),
+            firstName: fc.string({ minLength: 1, maxLength: 50 }).filter((s) => s.trim().length > 0).map((s) => s.trim()),
+            lastName: fc.string({ minLength: 1, maxLength: 50 }).filter((s) => s.trim().length > 0).map((s) => s.trim()),
             dateOfBirth: fc.date({ max: new Date() }),
-            phone: fc.string({ minLength: 10, maxLength: 15 }),
+            phone: fc.string({ minLength: 10, maxLength: 15 }).filter((s) => s.trim().length > 0).map((s) => s.trim()),
           }),
           (patientData) => {
             // Create a patient
             const patient = patientService.createPatient(patientData);
 
+            // A real user row is needed: foreign keys are enforced
+            const refUserId = 'ref-user-' + Math.random().toString(36).slice(2);
+            db.executeUpdate(
+              `INSERT INTO users (id, username, password_hash, first_name, last_name, role, is_active, created_at, updated_at)
+               VALUES (?, ?, 'hash', 'Ref', 'User', 'Dentist', 1, ?, ?)`,
+              [refUserId, refUserId, new Date().toISOString(), new Date().toISOString()]
+            );
             // Create a treatment plan for the patient (simulated by inserting directly)
             db.executeUpdate(
               `INSERT INTO treatment_plans (
@@ -376,7 +391,7 @@ describe('PatientService Property Tests', () => {
               [
                 'test-treatment-plan-id',
                 patient.id,
-                'test-user-id',
+                refUserId,
                 100.0,
                 new Date().toISOString(),
                 new Date().toISOString(),
@@ -388,7 +403,7 @@ describe('PatientService Property Tests', () => {
               patientService.deletePatient(patient.id);
             }).toThrow('Cannot delete patient with associated treatment plans');
           }
-        ),
+        ).beforeEach(() => { resetData(db); }),
         { numRuns: 100 }
       );
     });
@@ -397,10 +412,10 @@ describe('PatientService Property Tests', () => {
       fc.assert(
         fc.property(
           fc.record({
-            firstName: fc.string({ minLength: 1, maxLength: 50 }),
-            lastName: fc.string({ minLength: 1, maxLength: 50 }),
+            firstName: fc.string({ minLength: 1, maxLength: 50 }).filter((s) => s.trim().length > 0).map((s) => s.trim()),
+            lastName: fc.string({ minLength: 1, maxLength: 50 }).filter((s) => s.trim().length > 0).map((s) => s.trim()),
             dateOfBirth: fc.date({ max: new Date() }),
-            phone: fc.string({ minLength: 10, maxLength: 15 }),
+            phone: fc.string({ minLength: 10, maxLength: 15 }).filter((s) => s.trim().length > 0).map((s) => s.trim()),
           }),
           (patientData) => {
             // Create a patient
@@ -414,7 +429,7 @@ describe('PatientService Property Tests', () => {
             const retrieved = patientService.getPatient(patient.id);
             expect(retrieved).toBeNull();
           }
-        ),
+        ).beforeEach(() => { resetData(db); }),
         { numRuns: 100 }
       );
     });

@@ -40,16 +40,15 @@ describe('Project Setup Integration Test', () => {
   });
 
   describe('Database Infrastructure', () => {
-    it('should initialize SQLite database with better-sqlite3', async () => {
+    it('should initialize SQLite database with sql.js', async () => {
       await dbManager.initialize();
       expect(fs.existsSync(testDbPath)).toBe(true);
     });
 
-    it('should enable WAL mode for concurrent access', async () => {
+    it('should enable foreign keys', async () => {
       await dbManager.initialize();
-      const db = dbManager.getDatabase();
-      const result = db.pragma('journal_mode', { simple: true });
-      expect(result[0].journal_mode).toBe('wal');
+      const row = dbManager.executeQueryOne<{ foreign_keys: number }>('PRAGMA foreign_keys');
+      expect(row?.foreign_keys).toBe(1);
     });
 
     it('should support transactions with rollback', async () => {
@@ -158,7 +157,7 @@ describe('Project Setup Integration Test', () => {
       
       const pkg = JSON.parse(fs.readFileSync(packageJson, 'utf-8'));
       expect(pkg.name).toBe('dental-clinic-management');
-      expect(pkg.dependencies).toHaveProperty('better-sqlite3');
+      expect(pkg.dependencies).toHaveProperty(['sql.js']);
       expect(pkg.dependencies).toHaveProperty('react');
       expect(pkg.dependencies).toHaveProperty('fast-check');
       expect(pkg.devDependencies).toHaveProperty('electron');

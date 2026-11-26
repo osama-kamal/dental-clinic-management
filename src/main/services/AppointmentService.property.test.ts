@@ -27,22 +27,22 @@ describe('AppointmentService Property Tests', () => {
     authService = new AuthService(db);
 
     // Create test users
-    const adminUser = authService.createUser({
+    const adminUser = (await authService.createUser({
       username: 'admin',
       password: 'password123',
       firstName: 'Admin',
       lastName: 'User',
       role: 'Administrator',
-    });
+    })).data!;
     testUserId = adminUser.id;
 
-    const dentist = authService.createUser({
+    const dentist = (await authService.createUser({
       username: 'dentist',
       password: 'password123',
       firstName: 'Test',
       lastName: 'Dentist',
       role: 'Dentist',
-    });
+    })).data!;
     testDentistId = dentist.id;
 
     // Create test patient
@@ -70,69 +70,69 @@ describe('AppointmentService Property Tests', () => {
   // Feature: dental-clinic-management, Property 14: Appointment creation validation
   // **Validates: Requirements 3.1**
   describe('Property 14: Appointment creation validation', () => {
-    it('should reject appointment creation with missing patientId', () => {
-      fc.assert(
-        fc.property(
+    it('should reject appointment creation with missing patientId', async () => {
+      await fc.assert(
+        fc.asyncProperty(
           fc.record({
             dentistId: fc.constant(testDentistId),
             startTime: fc.date({ min: new Date() }),
             duration: fc.integer({ min: 15, max: 240 }),
             appointmentType: fc.constantFrom('Checkup', 'Cleaning', 'Consultation', 'Treatment'),
           }),
-          (data) => {
+          async (data) => {
             const invalidData = { ...data, patientId: '' };
             expect(() => {
               appointmentService.createAppointment(invalidData as AppointmentInput, testUserId);
             }).toThrow('Patient ID is required');
           }
-        ),
+        ).beforeEach(() => { db.executeUpdate('DELETE FROM appointments'); }),
         { numRuns: 100 }
       );
     });
 
-    it('should reject appointment creation with missing dentistId', () => {
-      fc.assert(
-        fc.property(
+    it('should reject appointment creation with missing dentistId', async () => {
+      await fc.assert(
+        fc.asyncProperty(
           fc.record({
             patientId: fc.constant(testPatientId),
             startTime: fc.date({ min: new Date() }),
             duration: fc.integer({ min: 15, max: 240 }),
             appointmentType: fc.constantFrom('Checkup', 'Cleaning', 'Consultation', 'Treatment'),
           }),
-          (data) => {
+          async (data) => {
             const invalidData = { ...data, dentistId: '' };
             expect(() => {
               appointmentService.createAppointment(invalidData as AppointmentInput, testUserId);
             }).toThrow('Dentist ID is required');
           }
-        ),
+        ).beforeEach(() => { db.executeUpdate('DELETE FROM appointments'); }),
         { numRuns: 100 }
       );
     });
 
-    it('should reject appointment creation with missing startTime', () => {
-      fc.assert(
-        fc.property(
+    it('should reject appointment creation with missing startTime', async () => {
+      await fc.assert(
+        fc.asyncProperty(
           fc.record({
             patientId: fc.constant(testPatientId),
             dentistId: fc.constant(testDentistId),
             duration: fc.integer({ min: 15, max: 240 }),
             appointmentType: fc.constantFrom('Checkup', 'Cleaning', 'Consultation', 'Treatment'),
           }),
-          (data) => {
+          async (data) => {
             const invalidData = { ...data, startTime: null as any };
             expect(() => {
               appointmentService.createAppointment(invalidData, testUserId);
             }).toThrow('Start time is required');
           }
-        ),
+        ).beforeEach(() => { db.executeUpdate('DELETE FROM appointments'); }),
         { numRuns: 100 }
       );
     });
 
-    it('should reject appointment creation with missing or invalid duration', () => {
-      fc.assert(
-        fc.property(
+    it('should reject appointment creation with missing or invalid duration', async () => {
+      await fc.assert(
+        fc.asyncProperty(
           fc.record({
             patientId: fc.constant(testPatientId),
             dentistId: fc.constant(testDentistId),
@@ -140,49 +140,49 @@ describe('AppointmentService Property Tests', () => {
             appointmentType: fc.constantFrom('Checkup', 'Cleaning', 'Consultation', 'Treatment'),
           }),
           fc.integer({ min: -100, max: 0 }),
-          (data, invalidDuration) => {
+          async (data, invalidDuration) => {
             const invalidData = { ...data, duration: invalidDuration };
             expect(() => {
               appointmentService.createAppointment(invalidData, testUserId);
             }).toThrow('Duration is required and must be positive');
           }
-        ),
+        ).beforeEach(() => { db.executeUpdate('DELETE FROM appointments'); }),
         { numRuns: 100 }
       );
     });
 
-    it('should reject appointment creation with missing appointmentType', () => {
-      fc.assert(
-        fc.property(
+    it('should reject appointment creation with missing appointmentType', async () => {
+      await fc.assert(
+        fc.asyncProperty(
           fc.record({
             patientId: fc.constant(testPatientId),
             dentistId: fc.constant(testDentistId),
             startTime: fc.date({ min: new Date() }),
             duration: fc.integer({ min: 15, max: 240 }),
           }),
-          (data) => {
+          async (data) => {
             const invalidData = { ...data, appointmentType: '' };
             expect(() => {
               appointmentService.createAppointment(invalidData as AppointmentInput, testUserId);
             }).toThrow('Appointment type is required');
           }
-        ),
+        ).beforeEach(() => { db.executeUpdate('DELETE FROM appointments'); }),
         { numRuns: 100 }
       );
     });
 
-    it('should accept appointment creation with all required fields', () => {
-      fc.assert(
-        fc.property(
+    it('should accept appointment creation with all required fields', async () => {
+      await fc.assert(
+        fc.asyncProperty(
           fc.record({
             patientId: fc.constant(testPatientId),
             dentistId: fc.constant(testDentistId),
             startTime: fc.date({ min: new Date(), max: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000) }),
             duration: fc.integer({ min: 15, max: 240 }),
             appointmentType: fc.constantFrom('Checkup', 'Cleaning', 'Consultation', 'Treatment'),
-            notes: fc.option(fc.string({ maxLength: 500 })),
+            notes: fc.option(fc.string({ maxLength: 500 }), { nil: undefined }),
           }),
-          (data) => {
+          async (data) => {
             const appointment = appointmentService.createAppointment(data, testUserId);
             expect(appointment).toBeDefined();
             expect(appointment.id).toBeDefined();
@@ -192,7 +192,7 @@ describe('AppointmentService Property Tests', () => {
             expect(appointment.appointmentType).toBe(data.appointmentType);
             expect(appointment.status).toBe('Scheduled');
           }
-        ),
+        ).beforeEach(() => { db.executeUpdate('DELETE FROM appointments'); }),
         { numRuns: 100 }
       );
     });
@@ -201,18 +201,18 @@ describe('AppointmentService Property Tests', () => {
   // Feature: dental-clinic-management, Property 16: Appointment persistence round-trip
   // **Validates: Requirements 3.3**
   describe('Property 16: Appointment persistence round-trip', () => {
-    it('should persist and retrieve appointment data correctly', () => {
-      fc.assert(
-        fc.property(
+    it('should persist and retrieve appointment data correctly', async () => {
+      await fc.assert(
+        fc.asyncProperty(
           fc.record({
             patientId: fc.constant(testPatientId),
             dentistId: fc.constant(testDentistId),
             startTime: fc.date({ min: new Date(), max: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000) }),
             duration: fc.integer({ min: 15, max: 240 }),
             appointmentType: fc.constantFrom('Checkup', 'Cleaning', 'Consultation', 'Treatment', 'Emergency'),
-            notes: fc.option(fc.string({ maxLength: 500 })),
+            notes: fc.option(fc.string({ maxLength: 500 }), { nil: undefined }),
           }),
-          (data) => {
+          async (data) => {
             // Create appointment
             const created = appointmentService.createAppointment(data, testUserId);
 
@@ -228,11 +228,11 @@ describe('AppointmentService Property Tests', () => {
             expect(retrieved!.duration).toBe(data.duration);
             expect(retrieved!.appointmentType).toBe(data.appointmentType);
             expect(retrieved!.status).toBe('Scheduled');
-            if (data.notes) {
-              expect(retrieved!.notes).toBe(data.notes);
+            if (data.notes?.trim()) {
+              expect(retrieved!.notes).toBe(data.notes.trim());
             }
           }
-        ),
+        ).beforeEach(() => { db.executeUpdate('DELETE FROM appointments'); }),
         { numRuns: 100 }
       );
     });
@@ -241,16 +241,16 @@ describe('AppointmentService Property Tests', () => {
   // Feature: dental-clinic-management, Property 15: Appointment conflict detection
   // **Validates: Requirements 3.2, 3.6, 3.9**
   describe('Property 15: Appointment conflict detection', () => {
-    it('should detect conflicts when appointments overlap for the same dentist', () => {
-      fc.assert(
-        fc.property(
+    it('should detect conflicts when appointments overlap for the same dentist', async () => {
+      await fc.assert(
+        fc.asyncProperty(
           fc.record({
             startTime: fc.date({ min: new Date(), max: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000) }),
             duration1: fc.integer({ min: 30, max: 120 }),
             duration2: fc.integer({ min: 30, max: 120 }),
             offsetMinutes: fc.integer({ min: -60, max: 60 }), // Offset for second appointment
           }),
-          (data) => {
+          async (data) => {
             // Create first appointment
             const appointment1 = appointmentService.createAppointment(
               {
@@ -303,27 +303,27 @@ describe('AppointmentService Property Tests', () => {
               expect(appointment2).toBeDefined();
             }
           }
-        ),
+        ).beforeEach(() => { db.executeUpdate('DELETE FROM appointments'); }),
         { numRuns: 100 }
       );
     });
 
-    it('should allow appointments at the same time for different dentists', () => {
-      fc.assert(
-        fc.property(
+    it('should allow appointments at the same time for different dentists', async () => {
+      await fc.assert(
+        fc.asyncProperty(
           fc.record({
             startTime: fc.date({ min: new Date(), max: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000) }),
             duration: fc.integer({ min: 30, max: 120 }),
           }),
-          (data) => {
+          async (data) => {
             // Create second dentist
-            const dentist2 = authService.createUser({
+            const dentist2 = (await authService.createUser({
               username: `dentist-${Date.now()}-${Math.random()}`,
               password: 'password123',
               firstName: 'Another',
               lastName: 'Dentist',
               role: 'Dentist',
-            });
+            })).data!;
 
             // Create appointment for first dentist
             const appointment1 = appointmentService.createAppointment(
@@ -353,20 +353,20 @@ describe('AppointmentService Property Tests', () => {
             expect(appointment2).toBeDefined();
             expect(appointment1.dentistId).not.toBe(appointment2.dentistId);
           }
-        ),
+        ).beforeEach(() => { db.executeUpdate('DELETE FROM appointments'); }),
         { numRuns: 100 }
       );
     });
 
-    it('should allow rescheduling without conflict when time slot is free', () => {
-      fc.assert(
-        fc.property(
+    it('should allow rescheduling without conflict when time slot is free', async () => {
+      await fc.assert(
+        fc.asyncProperty(
           fc.record({
             startTime1: fc.date({ min: new Date(), max: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000) }),
             startTime2: fc.date({ min: new Date(Date.now() + 31 * 24 * 60 * 60 * 1000), max: new Date(Date.now() + 60 * 24 * 60 * 60 * 1000) }),
             duration: fc.integer({ min: 30, max: 120 }),
           }),
-          (data) => {
+          async (data) => {
             // Create appointment
             const appointment = appointmentService.createAppointment(
               {
@@ -386,7 +386,7 @@ describe('AppointmentService Property Tests', () => {
 
             expect(updated.startTime.getTime()).toBe(data.startTime2.getTime());
           }
-        ),
+        ).beforeEach(() => { db.executeUpdate('DELETE FROM appointments'); }),
         { numRuns: 100 }
       );
     });
@@ -395,15 +395,15 @@ describe('AppointmentService Property Tests', () => {
   // Feature: dental-clinic-management, Property 19: Appointment reminder generation
   // **Validates: Requirements 3.8**
   describe('Property 19: Appointment reminder generation', () => {
-    it('should generate reminders for appointments 24 hours in the future', () => {
-      fc.assert(
-        fc.property(
+    it('should generate reminders for appointments 24 hours in the future', async () => {
+      await fc.assert(
+        fc.asyncProperty(
           fc.record({
             // Generate times around 24 hours from now (within a 10-minute window)
-            minutesOffset: fc.integer({ min: -5, max: 5 }),
+            minutesOffset: fc.integer({ min: -4, max: 4 }), // stay inside the 5 min window so elapsed test time cannot push it out
             duration: fc.integer({ min: 30, max: 120 }),
           }),
-          (data) => {
+          async (data) => {
             const now = new Date();
             const reminderTime = new Date(now.getTime() + 24 * 60 * 60 * 1000 + data.minutesOffset * 60 * 1000);
 
@@ -436,18 +436,18 @@ describe('AppointmentService Property Tests', () => {
               // This is acceptable as the window is narrow
             }
           }
-        ),
+        ).beforeEach(() => { db.executeUpdate('DELETE FROM appointments'); }),
         { numRuns: 100 }
       );
     });
 
-    it('should not generate reminders for cancelled appointments', () => {
-      fc.assert(
-        fc.property(
+    it('should not generate reminders for cancelled appointments', async () => {
+      await fc.assert(
+        fc.asyncProperty(
           fc.record({
             duration: fc.integer({ min: 30, max: 120 }),
           }),
-          (data) => {
+          async (data) => {
             const now = new Date();
             const reminderTime = new Date(now.getTime() + 24 * 60 * 60 * 1000);
 
@@ -473,20 +473,20 @@ describe('AppointmentService Property Tests', () => {
             const foundReminder = reminders.find(r => r.appointmentId === appointment.id);
             expect(foundReminder).toBeUndefined();
           }
-        ),
+        ).beforeEach(() => { db.executeUpdate('DELETE FROM appointments'); }),
         { numRuns: 100 }
       );
     });
 
-    it('should not generate reminders for appointments not scheduled 24 hours ahead', () => {
-      fc.assert(
-        fc.property(
+    it('should not generate reminders for appointments not scheduled 24 hours ahead', async () => {
+      await fc.assert(
+        fc.asyncProperty(
           fc.record({
             hoursAhead: fc.integer({ min: 1, max: 23 }).chain(h => fc.constant(h))
               .chain(h => fc.oneof(fc.constant(h), fc.integer({ min: 25, max: 72 }))),
             duration: fc.integer({ min: 30, max: 120 }),
           }),
-          (data) => {
+          async (data) => {
             const now = new Date();
             const appointmentTime = new Date(now.getTime() + data.hoursAhead * 60 * 60 * 1000);
 
@@ -515,7 +515,7 @@ describe('AppointmentService Property Tests', () => {
               expect(foundReminder).toBeUndefined();
             }
           }
-        ),
+        ).beforeEach(() => { db.executeUpdate('DELETE FROM appointments'); }),
         { numRuns: 100 }
       );
     });
@@ -524,16 +524,16 @@ describe('AppointmentService Property Tests', () => {
   // Feature: dental-clinic-management, Property 18: Appointment cancellation preservation
   // **Validates: Requirements 3.7**
   describe('Property 18: Appointment cancellation preservation', () => {
-    it('should update status to Cancelled and preserve the record', () => {
-      fc.assert(
-        fc.property(
+    it('should update status to Cancelled and preserve the record', async () => {
+      await fc.assert(
+        fc.asyncProperty(
           fc.record({
             startTime: fc.date({ min: new Date(), max: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000) }),
             duration: fc.integer({ min: 30, max: 120 }),
             appointmentType: fc.constantFrom('Checkup', 'Cleaning', 'Consultation', 'Treatment'),
-            cancellationReason: fc.string({ minLength: 1, maxLength: 200 }),
+            cancellationReason: fc.string({ minLength: 1, maxLength: 200 }).filter((s) => s.trim().length > 0),
           }),
-          (data) => {
+          async (data) => {
             // Create appointment
             const appointment = appointmentService.createAppointment(
               {
@@ -572,20 +572,20 @@ describe('AppointmentService Property Tests', () => {
             expect(retrieved!.duration).toBe(data.duration);
             expect(retrieved!.appointmentType).toBe(data.appointmentType);
           }
-        ),
+        ).beforeEach(() => { db.executeUpdate('DELETE FROM appointments'); }),
         { numRuns: 100 }
       );
     });
 
-    it('should keep cancelled appointments in the database', () => {
-      fc.assert(
-        fc.property(
+    it('should keep cancelled appointments in the database', async () => {
+      await fc.assert(
+        fc.asyncProperty(
           fc.record({
             startTime: fc.date({ min: new Date(), max: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000) }),
             duration: fc.integer({ min: 30, max: 120 }),
-            cancellationReason: fc.string({ minLength: 1, maxLength: 200 }),
+            cancellationReason: fc.string({ minLength: 1, maxLength: 200 }).filter((s) => s.trim().length > 0),
           }),
-          (data) => {
+          async (data) => {
             // Create appointment
             const appointment = appointmentService.createAppointment(
               {
@@ -610,7 +610,7 @@ describe('AppointmentService Property Tests', () => {
             expect(found).toBeDefined();
             expect(found!.status).toBe('Cancelled');
           }
-        ),
+        ).beforeEach(() => { db.executeUpdate('DELETE FROM appointments'); }),
         { numRuns: 100 }
       );
     });

@@ -23,7 +23,7 @@ interface Patient {
   emergencyContact?: string;
   emergencyPhone?: string;
   medicalHistory?: string;
-  allergies?: string;
+  allergies?: string | string[];
   medications?: string;
 }
 
@@ -43,7 +43,7 @@ export const PatientForm: React.FC<PatientFormProps> = ({ patient, onClose }) =>
     emergencyContact: patient?.emergencyContact || '',
     emergencyPhone: patient?.emergencyPhone || '',
     medicalHistory: patient?.medicalHistory || '',
-    allergies: patient?.allergies || '',
+    allergies: Array.isArray(patient?.allergies) ? (patient!.allergies as string[]).join(', ') : patient?.allergies || '',
     medications: patient?.medications || '',
   });
 
@@ -112,7 +112,7 @@ export const PatientForm: React.FC<PatientFormProps> = ({ patient, onClose }) =>
 
   return (
     <Box>
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 1, mb: 3 }}>
         <Typography variant="h4">
           {patient ? 'Edit Patient' : 'Add New Patient'}
         </Typography>

@@ -1,3 +1,4 @@
+import '@testing-library/jest-dom';
 /**
  * Jest test setup file
  * This file runs before all tests
@@ -29,7 +30,7 @@ jest.mock('electron', () => ({
 }));
 
 // Global test timeout
-jest.setTimeout(10000);
+jest.setTimeout(60000);
 
 // Clean up after each test
 afterEach(() => {

@@ -64,16 +64,17 @@ export class BillingService {
             throw new Error(`Treatment not found: ${treatmentId}`);
           }
 
+          const alreadyInvoiced = this.db.executeQueryOne<any>(
+            'SELECT invoice_id FROM invoice_items WHERE treatment_id = ?',
+            [treatmentId]
+          );
+          if (alreadyInvoiced) {
+            throw new Error(`Treatment is already on an invoice: ${treatmentId}`);
+          }
+
           const itemId = randomUUID();
           const totalPrice = treatment.estimated_cost;
           subtotal += totalPrice;
-
-          this.db.executeUpdate(
-            `INSERT INTO invoice_items (
-              id, invoice_id, treatment_id, description, quantity, unit_price, total_price
-            ) VALUES (?, ?, ?, ?, ?, ?, ?)`,
-            [itemId, id, treatmentId, treatment.description, 1, treatment.estimated_cost, totalPrice]
-          );
 
           items.push({
             id: itemId,
@@ -116,6 +117,16 @@ export class BillingService {
             now,
           ]
         );
+
+        // Items reference the invoice, so they go in after it (foreign keys are enforced)
+        for (const item of items) {
+          this.db.executeUpdate(
+            `INSERT INTO invoice_items (
+              id, invoice_id, treatment_id, description, quantity, unit_price, total_price
+            ) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+            [item.id, id, item.treatmentId, item.description, item.quantity, item.unitPrice, item.totalPrice]
+          );
+        }
       });
 
       const invoice = this.getInvoice(id);
@@ -324,7 +335,7 @@ export class BillingService {
    * Generate PDF invoice
    * Requirements: 5.8
    */
-  generateInvoicePDF(invoiceId: string): Buffer {
+  generateInvoicePDF(invoiceId: string): Promise<Buffer> {
     try {
       const invoice = this.getInvoice(invoiceId);
       if (!invoice) {
@@ -390,14 +401,12 @@ export class BillingService {
       doc.fontSize(12).text(`Amount Paid: $${invoice.amountPaid.toFixed(2)}`, { align: 'right' });
       doc.fontSize(14).text(`Balance Due: $${invoice.balance.toFixed(2)}`, { align: 'right' });
 
-      doc.end();
-
+      // PDFKit emits its data asynchronously: wait for 'end' before returning
       return new Promise<Buffer>((resolve, reject) => {
-        doc.on('end', () => {
-          resolve(Buffer.concat(chunks));
-        });
+        doc.on('end', () => resolve(Buffer.concat(chunks)));
         doc.on('error', reject);
-      }) as any;
+        doc.end();
+      });
     } catch (error) {
       logger.error('Failed to generate invoice PDF', { error, invoiceId });
       throw error;

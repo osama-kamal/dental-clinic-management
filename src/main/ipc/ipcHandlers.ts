@@ -14,6 +14,21 @@ import { logger } from '../utils/logger';
  * Set up all IPC handlers for communication between renderer and main process
  * Requirements: 9.1, 9.5
  */
+// The patient form sends dateOfBirth as a yyyy-mm-dd string; the service expects a Date.
+function normalizePatientDates(data: any): any {
+  if (data && typeof data.dateOfBirth === 'string' && data.dateOfBirth !== '') {
+    data = { ...data, dateOfBirth: new Date(data.dateOfBirth) };
+  }
+  // The form edits allergies as one comma separated string; the service stores a list.
+  if (data && typeof data.allergies === 'string') {
+    data = {
+      ...data,
+      allergies: data.allergies.split(',').map((a: string) => a.trim()).filter(Boolean),
+    };
+  }
+  return data;
+}
+
 export function setupIpcHandlers(ipcMain: IpcMain, dbManager: DatabaseManager): void {
   logger.info('Setting up IPC handlers');
 
@@ -95,7 +110,7 @@ export function setupIpcHandlers(ipcMain: IpcMain, dbManager: DatabaseManager): 
   // ==================== Patient Handlers ====================
   ipcMain.handle('patients:create', async (event, patientData: any) => {
     try {
-      const patient = patientService.createPatient(patientData);
+      const patient = patientService.createPatient(normalizePatientDates(patientData));
       return { success: true, data: patient };
     } catch (error) {
       logger.error('Create patient failed', { error });
@@ -115,7 +130,7 @@ export function setupIpcHandlers(ipcMain: IpcMain, dbManager: DatabaseManager): 
 
   ipcMain.handle('patients:update', async (event, patientId: string, patientData: any) => {
     try {
-      const patient = patientService.updatePatient(patientId, patientData);
+      const patient = patientService.updatePatient(patientId, normalizePatientDates(patientData));
       return { success: true, data: patient };
     } catch (error) {
       logger.error('Update patient failed', { error });
@@ -277,7 +292,17 @@ export function setupIpcHandlers(ipcMain: IpcMain, dbManager: DatabaseManager): 
   ipcMain.handle('treatments:getByPatient', async (event, patientId: string) => {
     try {
       const plans = treatmentService.getTreatmentsByPatient(patientId);
-      return { success: true, data: plans };
+      // flag treatments that are already on an invoice so the invoice form doesn't bill them twice
+      const invoicedIds = new Set(
+        dbManager
+          .executeQuery<any>('SELECT treatment_id FROM invoice_items WHERE treatment_id IS NOT NULL')
+          .map((r) => r.treatment_id)
+      );
+      const data = plans.map((plan: any) => ({
+        ...plan,
+        treatments: (plan.treatments || []).map((t: any) => ({ ...t, invoiced: invoicedIds.has(t.id) })),
+      }));
+      return { success: true, data };
     } catch (error) {
       logger.error('Get treatments by patient failed', { error });
       return { success: false, error: String(error) };
@@ -372,7 +397,7 @@ export function setupIpcHandlers(ipcMain: IpcMain, dbManager: DatabaseManager): 
 
   ipcMain.handle('billing:generatePDF', async (event, invoiceId: string) => {
     try {
-      const pdfBuffer = billingService.generateInvoicePDF(invoiceId);
+      const pdfBuffer = await billingService.generateInvoicePDF(invoiceId);
       return { success: true, data: pdfBuffer };
     } catch (error) {
       logger.error('Generate invoice PDF failed', { error });
@@ -517,7 +542,7 @@ export function setupIpcHandlers(ipcMain: IpcMain, dbManager: DatabaseManager): 
 
   ipcMain.handle('reports:exportPDF', async (event, report: any, reportType: string) => {
     try {
-      const pdfBuffer = reportService.exportToPDF(report, reportType);
+      const pdfBuffer = await reportService.exportToPDF(report, reportType);
       return { success: true, data: pdfBuffer };
     } catch (error) {
       logger.error('Export report to PDF failed', { error });

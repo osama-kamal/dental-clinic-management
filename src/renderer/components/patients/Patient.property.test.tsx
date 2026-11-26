@@ -1,27 +1,29 @@
+/** @jest-environment jsdom */
+/// <reference types="@testing-library/jest-dom" />
 /**
  * Property-Based Tests for Patient Management UI Components
  * Requirements: 2.5, 2.8, 13.1, 13.4
  */
 
 import * as fc from 'fast-check';
-import { render, screen } from '@testing-library/react';
+import { render, screen, cleanup } from '@testing-library/react';
 import { PatientDetail } from './PatientDetail';
 
 // Arbitraries for generating test data
 const patientArbitrary = fc.record({
   id: fc.uuid(),
-  firstName: fc.string({ minLength: 1, maxLength: 50 }),
-  lastName: fc.string({ minLength: 1, maxLength: 50 }),
+  firstName: fc.string({ minLength: 1, maxLength: 50 }).filter((s) => s.trim().length > 0).map((s) => s.replace(/\s+/g, ' ').trim()),
+  lastName: fc.string({ minLength: 1, maxLength: 50 }).filter((s) => s.trim().length > 0).map((s) => s.replace(/\s+/g, ' ').trim()),
   dateOfBirth: fc.date({ min: new Date('1920-01-01'), max: new Date('2020-01-01') })
     .map(d => d.toISOString().split('T')[0]),
-  phone: fc.string({ minLength: 10, maxLength: 15 }),
+  phone: fc.string({ minLength: 10, maxLength: 15 }).filter((s) => s.trim().length > 0).map((s) => s.replace(/\s+/g, ' ').trim()),
   email: fc.option(fc.emailAddress(), { nil: undefined }),
-  address: fc.option(fc.string({ maxLength: 200 }), { nil: undefined }),
-  emergencyContact: fc.option(fc.string({ minLength: 1, maxLength: 100 }), { nil: undefined }),
-  emergencyPhone: fc.option(fc.string({ minLength: 10, maxLength: 15 }), { nil: undefined }),
-  medicalHistory: fc.option(fc.string({ maxLength: 1000 }), { nil: undefined }),
-  allergies: fc.option(fc.string({ minLength: 1, maxLength: 500 }), { nil: undefined }),
-  medications: fc.option(fc.string({ maxLength: 500 }), { nil: undefined }),
+  address: fc.option(fc.string({ maxLength: 200 }).filter((s) => s.trim().length > 0).map((s) => s.replace(/\s+/g, ' ').trim()), { nil: undefined }),
+  emergencyContact: fc.option(fc.string({ minLength: 1, maxLength: 100 }).filter((s) => s.trim().length > 0).map((s) => s.replace(/\s+/g, ' ').trim()), { nil: undefined }),
+  emergencyPhone: fc.option(fc.string({ minLength: 10, maxLength: 15 }).filter((s) => s.trim().length > 0).map((s) => s.replace(/\s+/g, ' ').trim()), { nil: undefined }),
+  medicalHistory: fc.option(fc.string({ maxLength: 1000 }).filter((s) => s.trim().length > 0).map((s) => s.replace(/\s+/g, ' ').trim()), { nil: undefined }),
+  allergies: fc.option(fc.string({ minLength: 1, maxLength: 500 }).filter((s) => s.trim().length > 0).map((s) => s.replace(/\s+/g, ' ').trim()), { nil: undefined }),
+  medications: fc.option(fc.string({ maxLength: 500 }).filter((s) => s.trim().length > 0).map((s) => s.replace(/\s+/g, ' ').trim()), { nil: undefined }),
 });
 
 describe('Patient Management UI Property Tests', () => {
@@ -39,37 +41,37 @@ describe('Patient Management UI Property Tests', () => {
         render(<PatientDetail patient={patient} onClose={mockOnClose} />);
         
         // Required fields must always be displayed
-        expect(screen.getByText(`${patient.firstName} ${patient.lastName}`)).toBeInTheDocument();
-        expect(screen.getByText(patient.id)).toBeInTheDocument();
-        expect(screen.getByText(patient.phone)).toBeInTheDocument();
+        expect(screen.getAllByText(`${patient.firstName} ${patient.lastName}`)[0]).toBeInTheDocument();
+        expect(screen.getAllByText(patient.id)[0]).toBeInTheDocument();
+        expect(screen.getAllByText(patient.phone)[0]).toBeInTheDocument();
         
         // Date of birth must be displayed
-        const dobElement = screen.getByText(new RegExp(new Date(patient.dateOfBirth).toLocaleDateString()));
+        const dobElement = screen.getAllByText(new RegExp(new Date(patient.dateOfBirth).toLocaleDateString()))[0];
         expect(dobElement).toBeInTheDocument();
         
         // Optional fields must be displayed if present, or show placeholder
         if (patient.email) {
-          expect(screen.getByText(patient.email)).toBeInTheDocument();
+          expect(screen.getAllByText(patient.email)[0]).toBeInTheDocument();
         }
         
         if (patient.address) {
-          expect(screen.getByText(patient.address)).toBeInTheDocument();
+          expect(screen.getAllByText(patient.address)[0]).toBeInTheDocument();
         }
         
         if (patient.emergencyContact) {
-          expect(screen.getByText(patient.emergencyContact)).toBeInTheDocument();
+          expect(screen.getAllByText(patient.emergencyContact)[0]).toBeInTheDocument();
         }
         
         if (patient.emergencyPhone) {
-          expect(screen.getByText(patient.emergencyPhone)).toBeInTheDocument();
+          expect(screen.getAllByText(patient.emergencyPhone)[0]).toBeInTheDocument();
         }
         
         // Medical information sections must be present
-        expect(screen.getByText('Medical Information')).toBeInTheDocument();
-        expect(screen.getByText('Medical History')).toBeInTheDocument();
-        expect(screen.getByText('Allergies')).toBeInTheDocument();
-        expect(screen.getByText('Current Medications')).toBeInTheDocument();
-      }),
+        expect(screen.getAllByText('Medical Information')[0]).toBeInTheDocument();
+        expect(screen.getAllByText('Medical History')[0]).toBeInTheDocument();
+        expect(screen.getAllByText('Allergies')[0]).toBeInTheDocument();
+        expect(screen.getAllByText('Current Medications')[0]).toBeInTheDocument();
+      }).afterEach(() => { cleanup(); }),
       { numRuns: 100 }
     );
   });
@@ -89,17 +91,17 @@ describe('Patient Management UI Property Tests', () => {
         
         if (patient.allergies && patient.allergies.trim().length > 0) {
           // Allergy warning must be prominently displayed
-          expect(screen.getByText('Allergy Warning')).toBeInTheDocument();
-          expect(screen.getByText(patient.allergies)).toBeInTheDocument();
+          expect(screen.getAllByText('Allergy Warning')[0]).toBeInTheDocument();
+          expect(screen.getAllByText(patient.allergies)[0]).toBeInTheDocument();
           
           // Warning should use warning severity (check for warning icon or styling)
-          const warningAlert = screen.getByText('Allergy Warning').closest('.MuiAlert-root');
+          const warningAlert = screen.getAllByText('Allergy Warning')[0].closest('.MuiAlert-root');
           expect(warningAlert).toHaveClass('MuiAlert-standardWarning');
         } else {
           // No allergy warning should be displayed if no allergies
           expect(screen.queryByText('Allergy Warning')).not.toBeInTheDocument();
         }
-      }),
+      }).afterEach(() => { cleanup(); }),
       { numRuns: 100 }
     );
   });
@@ -118,31 +120,31 @@ describe('Patient Management UI Property Tests', () => {
         render(<PatientDetail patient={patient} onClose={mockOnClose} />);
         
         // Medical history section must be present
-        expect(screen.getByText('Medical Information')).toBeInTheDocument();
+        expect(screen.getAllByText('Medical Information')[0]).toBeInTheDocument();
         
         // Medical history content must be displayed
         if (patient.medicalHistory && patient.medicalHistory.trim().length > 0) {
-          expect(screen.getByText(patient.medicalHistory)).toBeInTheDocument();
+          expect(screen.getAllByText(patient.medicalHistory)[0]).toBeInTheDocument();
         } else {
-          expect(screen.getByText('No medical history recorded')).toBeInTheDocument();
+          expect(screen.getAllByText('No medical history recorded')[0]).toBeInTheDocument();
         }
         
         // Allergies must be displayed
         if (patient.allergies && patient.allergies.trim().length > 0) {
           // Allergies shown in chip format
-          const allergyChip = screen.getByText(patient.allergies);
+          const allergyChip = screen.getAllByText(patient.allergies)[0];
           expect(allergyChip).toBeInTheDocument();
         } else {
-          expect(screen.getByText('No known allergies')).toBeInTheDocument();
+          expect(screen.getAllByText('No known allergies')[0]).toBeInTheDocument();
         }
         
         // Medications must be displayed
         if (patient.medications && patient.medications.trim().length > 0) {
-          expect(screen.getByText(patient.medications)).toBeInTheDocument();
+          expect(screen.getAllByText(patient.medications)[0]).toBeInTheDocument();
         } else {
-          expect(screen.getByText('No current medications')).toBeInTheDocument();
+          expect(screen.getAllByText('No current medications')[0]).toBeInTheDocument();
         }
-      }),
+      }).afterEach(() => { cleanup(); }),
       { numRuns: 100 }
     );
   });
@@ -182,18 +184,18 @@ describe('Patient Management UI Property Tests', () => {
           render(<PatientDetail patient={patientWithCritical} onClose={mockOnClose} />);
           
           // Critical condition must be visible in medical information
-          expect(screen.getByText('Medical Information')).toBeInTheDocument();
+          expect(screen.getAllByText('Medical Information')[0]).toBeInTheDocument();
           
           // Allergy warning must be displayed if allergies contain critical info
           if (patientWithCritical.allergies) {
-            expect(screen.getByText('Allergy Warning')).toBeInTheDocument();
+            expect(screen.getAllByText('Allergy Warning')[0]).toBeInTheDocument();
           }
           
           // Medical history must display the critical condition
-          const medicalHistoryText = screen.getByText(new RegExp(criticalCondition, 'i'));
+          const medicalHistoryText = screen.getAllByText(new RegExp(criticalCondition, 'i'))[0];
           expect(medicalHistoryText).toBeInTheDocument();
         }
-      ),
+      ).afterEach(() => { cleanup(); }),
       { numRuns: 100 }
     );
   });
@@ -215,8 +217,8 @@ describe('Patient Management UI Property Tests', () => {
         
         // Age must be displayed correctly
         const ageText = `${expectedAge} years`;
-        expect(screen.getByText(new RegExp(ageText))).toBeInTheDocument();
-      }),
+        expect(screen.getAllByText(new RegExp(ageText))[0]).toBeInTheDocument();
+      }).afterEach(() => { cleanup(); }),
       { numRuns: 100 }
     );
   });

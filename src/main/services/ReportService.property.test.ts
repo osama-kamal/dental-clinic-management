@@ -1,4 +1,5 @@
 import fc from 'fast-check';
+import { resetData } from '../../test/dataReset';
 import { ReportService } from './ReportService';
 import { DatabaseManager } from '../../database/DatabaseManager';
 import { AppointmentService } from './AppointmentService';
@@ -19,9 +20,9 @@ describe('ReportService Property Tests', () => {
   let treatmentService: TreatmentService;
   let inventoryService: InventoryService;
 
-  beforeEach(() => {
+  beforeEach(async () => {
     db = new DatabaseManager(':memory:');
-    db.initialize();
+    await db.initialize();
     reportService = new ReportService(db);
     appointmentService = new AppointmentService(db);
     patientService = new PatientService(db);
@@ -35,15 +36,17 @@ describe('ReportService Property Tests', () => {
     db.close();
   });
 
-  // Helper function to create test user
-  const createTestUser = (role: 'Administrator' | 'Dentist' | 'Receptionist' = 'Dentist') => {
-    return authService.createUser({
-      username: `user_${randomUUID()}`,
-      password: 'password123',
-      firstName: 'Test',
-      lastName: 'User',
-      role,
-    });
+  // Helper function to create test user. Reports do not test hashing, so the row is
+  // inserted directly with a placeholder hash (AuthService tests keep real bcrypt).
+  const createTestUser = async (role: 'Administrator' | 'Dentist' | 'Receptionist' = 'Dentist') => {
+    const id = randomUUID();
+    const now = new Date().toISOString();
+    db.executeUpdate(
+      `INSERT INTO users (id, username, password_hash, first_name, last_name, role, is_active, created_at, updated_at)
+       VALUES (?, ?, 'placeholder-hash', 'Test', 'User', ?, 1, ?, ?)`,
+      [id, `user_${id}`, role, now, now]
+    );
+    return { id };
   };
 
   // Helper function to create test patient
@@ -63,9 +66,9 @@ describe('ReportService Property Tests', () => {
    * Validates: Requirements 7.1
    */
   describe('Property 41: Daily appointment report completeness', () => {
-    it('should include all appointments for the date grouped by status', () => {
-      fc.assert(
-        fc.property(
+    it('should include all appointments for the date grouped by status', async () => {
+      await fc.assert(
+        fc.asyncProperty(
           fc.array(
             fc.record({
               hour: fc.integer({ min: 0, max: 23 }),
@@ -75,20 +78,23 @@ describe('ReportService Property Tests', () => {
             }),
             { minLength: 1, maxLength: 20 }
           ),
-          (appointments) => {
-            const user = createTestUser();
+          async (appointments) => {
+            const user = await createTestUser();
             const patient = createTestPatient();
             const testDate = new Date('2024-06-15');
+            // each generated appointment gets its own dentist: a dentist cannot be double-booked
+            const dentists: Array<{ id: string }> = [];
+            for (let n = 0; n < appointments.length; n++) dentists.push(await createTestUser());
 
             // Create appointments for the test date
-            const createdAppointments = appointments.map((appt) => {
+            const createdAppointments = appointments.map((appt, idx) => {
               const startTime = new Date(testDate);
               startTime.setHours(appt.hour, appt.minute, 0, 0);
 
               const created = appointmentService.createAppointment(
                 {
                   patientId: patient.id,
-                  dentistId: user.id,
+                  dentistId: dentists[idx].id,
                   startTime,
                   duration: appt.duration,
                   appointmentType: 'Checkup',
@@ -134,7 +140,7 @@ describe('ReportService Property Tests', () => {
             // Verify date matches
             expect(report.date.toDateString()).toBe(testDate.toDateString());
           }
-        ),
+        ).beforeEach(() => { resetData(db); }),
         { numRuns: 100 }
       );
     });
@@ -147,22 +153,22 @@ describe('ReportService Property Tests', () => {
    * Validates: Requirements 7.2
    */
   describe('Property 42: Revenue report calculation', () => {
-    it('should correctly sum revenue for the date range', () => {
-      fc.assert(
-        fc.property(
+    it('should correctly sum revenue for the date range', async () => {
+      await fc.assert(
+        fc.asyncProperty(
           fc.array(
             fc.record({
               amount: fc.float({ min: 10, max: 1000, noNaN: true }),
-              daysOffset: fc.integer({ min: 0, max: 30 }),
+              daysOffset: fc.integer({ min: 0, max: 28 }),
             }),
             { minLength: 1, maxLength: 10 }
           ),
-          (payments) => {
-            const user = createTestUser();
+          async (payments) => {
+            const user = await createTestUser();
             const patient = createTestPatient();
 
             const startDate = new Date('2024-06-01');
-            const endDate = new Date('2024-06-30');
+            const endDate = new Date('2024-06-30T23:59:59.999Z');
 
             let expectedTotal = 0;
 
@@ -187,8 +193,7 @@ describe('ReportService Property Tests', () => {
               // Complete the treatment
               treatmentService.updateTreatmentStatus(
                 treatmentPlan.treatments[0].id,
-                'Completed',
-                user.id
+                'Completed'
               );
 
               // Create invoice
@@ -224,7 +229,7 @@ describe('ReportService Property Tests', () => {
             // Verify total revenue matches expected
             expect(Math.abs(report.totalRevenue - expectedTotal)).toBeLessThan(0.01);
           }
-        ),
+        ).beforeEach(() => { resetData(db); }),
         { numRuns: 100 }
       );
     });
@@ -237,9 +242,9 @@ describe('ReportService Property Tests', () => {
    * Validates: Requirements 7.3
    */
   describe('Property 43: Patient visit history completeness', () => {
-    it('should include all appointments for the patient in chronological order', () => {
-      fc.assert(
-        fc.property(
+    it('should include all appointments for the patient in chronological order', async () => {
+      await fc.assert(
+        fc.asyncProperty(
           fc.array(
             fc.record({
               daysOffset: fc.integer({ min: -30, max: 30 }),
@@ -247,13 +252,16 @@ describe('ReportService Property Tests', () => {
             }),
             { minLength: 1, maxLength: 15 }
           ),
-          (appointments) => {
-            const user = createTestUser();
+          async (appointments) => {
+            const user = await createTestUser();
             const patient = createTestPatient();
             const baseDate = new Date('2024-06-15');
+            // each generated appointment gets its own dentist: a dentist cannot be double-booked
+            const dentists: Array<{ id: string }> = [];
+            for (let n = 0; n < appointments.length; n++) dentists.push(await createTestUser());
 
             // Create appointments
-            const createdAppointments = appointments.map((appt) => {
+            const createdAppointments = appointments.map((appt, idx) => {
               const startTime = new Date(baseDate);
               startTime.setDate(startTime.getDate() + appt.daysOffset);
               startTime.setHours(10, 0, 0, 0);
@@ -261,7 +269,7 @@ describe('ReportService Property Tests', () => {
               return appointmentService.createAppointment(
                 {
                   patientId: patient.id,
-                  dentistId: user.id,
+                  dentistId: dentists[idx].id,
                   startTime,
                   duration: 60,
                   appointmentType: appt.appointmentType,
@@ -285,7 +293,7 @@ describe('ReportService Property Tests', () => {
               );
             }
           }
-        ),
+        ).beforeEach(() => { resetData(db); }),
         { numRuns: 100 }
       );
     });
@@ -298,12 +306,12 @@ describe('ReportService Property Tests', () => {
    * Validates: Requirements 7.4
    */
   describe('Property 44: Inventory report accuracy', () => {
-    it('should accurately reflect current stock levels', () => {
-      fc.assert(
-        fc.property(
+    it('should accurately reflect current stock levels', async () => {
+      await fc.assert(
+        fc.asyncProperty(
           fc.array(
             fc.record({
-              name: fc.string({ minLength: 3, maxLength: 20 }),
+              name: fc.string({ minLength: 3, maxLength: 20 }).filter((s) => s.trim().length > 0),
               category: fc.constantFrom('Dental Supplies', 'Medications', 'Equipment'),
               quantity: fc.integer({ min: 0, max: 1000 }),
               minThreshold: fc.integer({ min: 5, max: 50 }),
@@ -311,8 +319,8 @@ describe('ReportService Property Tests', () => {
             }),
             { minLength: 1, maxLength: 10 }
           ),
-          (items) => {
-            const user = createTestUser();
+          async (items) => {
+            const user = await createTestUser();
 
             // Create inventory items
             const createdItems = items.map((item) =>
@@ -324,8 +332,7 @@ describe('ReportService Property Tests', () => {
                   currentQuantity: item.quantity,
                   minimumThreshold: item.minThreshold,
                   unitCost: item.unitCost,
-                },
-                user.id
+                }
               )
             );
 
@@ -365,7 +372,7 @@ describe('ReportService Property Tests', () => {
             ).length;
             expect(report.lowStockCount).toBe(expectedLowStockCount);
           }
-        ),
+        ).beforeEach(() => { resetData(db); }),
         { numRuns: 100 }
       );
     });
@@ -378,10 +385,10 @@ describe('ReportService Property Tests', () => {
    * Validates: Requirements 7.6
    */
   describe('Property 45: Report export format validity', () => {
-    it('should produce valid PDF buffer', () => {
-      fc.assert(
-        fc.property(fc.date(), (date) => {
-          const user = createTestUser();
+    it('should produce valid PDF buffer', async () => {
+      await fc.assert(
+        fc.asyncProperty(fc.date({ min: new Date('2000-01-01'), max: new Date('2100-01-01'), noInvalidDate: true }), async (date) => {
+          const user = await createTestUser();
           const patient = createTestPatient();
 
           // Create at least one appointment
@@ -397,7 +404,7 @@ describe('ReportService Property Tests', () => {
           );
 
           const report = reportService.generateDailyAppointmentReport(date);
-          const pdfBuffer = reportService.exportToPDF(report, 'Daily Appointment');
+          const pdfBuffer = await reportService.exportToPDF(report, 'Daily Appointment');
 
           // Verify it's a valid buffer
           expect(Buffer.isBuffer(pdfBuffer)).toBe(true);
@@ -406,15 +413,15 @@ describe('ReportService Property Tests', () => {
           // Verify PDF signature (starts with %PDF)
           const pdfSignature = pdfBuffer.toString('utf8', 0, 4);
           expect(pdfSignature).toBe('%PDF');
-        }),
+        }).beforeEach(() => { resetData(db); }),
         { numRuns: 100 }
       );
     });
 
-    it('should produce valid CSV with headers', () => {
-      fc.assert(
-        fc.property(fc.date(), (date) => {
-          const user = createTestUser();
+    it('should produce valid CSV with headers', async () => {
+      await fc.assert(
+        fc.asyncProperty(fc.date({ min: new Date('2000-01-01'), max: new Date('2100-01-01'), noInvalidDate: true }), async (date) => {
+          const user = await createTestUser();
           const patient = createTestPatient();
 
           // Create at least one appointment
@@ -445,7 +452,7 @@ describe('ReportService Property Tests', () => {
 
           // Verify proper delimiter (comma)
           expect(lines[0].includes(',')).toBe(true);
-        }),
+        }).beforeEach(() => { resetData(db); }),
         { numRuns: 100 }
       );
     });
@@ -459,16 +466,16 @@ describe('ReportService Property Tests', () => {
    * Validates: Requirements 7.7
    */
   describe('Property 46: Dashboard analytics accuracy', () => {
-    it('should calculate correct daily metrics', () => {
-      fc.assert(
-        fc.property(
+    it('should calculate correct daily metrics', async () => {
+      await fc.assert(
+        fc.asyncProperty(
           fc.record({
             appointmentCount: fc.integer({ min: 0, max: 20 }),
             paymentAmount: fc.float({ min: 0, max: 5000, noNaN: true }),
             pendingTreatments: fc.integer({ min: 0, max: 10 }),
           }),
-          (data) => {
-            const user = createTestUser();
+          async (data) => {
+            const user = await createTestUser();
             const patient = createTestPatient();
             const today = new Date();
             today.setHours(12, 0, 0, 0);
@@ -476,7 +483,7 @@ describe('ReportService Property Tests', () => {
             // Create appointments for today
             for (let i = 0; i < data.appointmentCount; i++) {
               const startTime = new Date(today);
-              startTime.setHours(9 + i, 0, 0, 0);
+              startTime.setHours(0, i * 30, 0, 0); // 30 min slots from midnight stay inside one day
 
               appointmentService.createAppointment(
                 {
@@ -506,8 +513,7 @@ describe('ReportService Property Tests', () => {
 
               treatmentService.updateTreatmentStatus(
                 treatmentPlan.treatments[0].id,
-                'Completed',
-                user.id
+                'Completed'
               );
 
               const invoice = billingService.createInvoice(
@@ -554,7 +560,7 @@ describe('ReportService Property Tests', () => {
             expect(analytics.pendingTreatments).toBe(data.pendingTreatments);
             expect(analytics.date.toDateString()).toBe(today.toDateString());
           }
-        ),
+        ).beforeEach(() => { resetData(db); }),
         { numRuns: 100 }
       );
     });
@@ -569,17 +575,17 @@ describe('ReportService Property Tests', () => {
    * Validates: Requirements 7.8
    */
   describe('Property 47: KPI calculation correctness', () => {
-    it('should calculate correct KPIs', () => {
-      fc.assert(
-        fc.property(
+    it('should calculate correct KPIs', async () => {
+      await fc.assert(
+        fc.asyncProperty(
           fc.record({
             treatmentCount: fc.integer({ min: 1, max: 10 }),
             treatmentValue: fc.float({ min: 50, max: 500, noNaN: true }),
             completedAppointments: fc.integer({ min: 1, max: 10 }),
             totalAppointments: fc.integer({ min: 1, max: 10 }),
-          }),
-          (data) => {
-            const user = createTestUser();
+          }).filter((d) => d.completedAppointments <= d.totalAppointments),
+          async (data) => {
+            const user = await createTestUser();
             const patient1 = createTestPatient();
             const patient2 = createTestPatient();
 
@@ -604,8 +610,7 @@ describe('ReportService Property Tests', () => {
 
               treatmentService.updateTreatmentStatus(
                 treatmentPlan.treatments[0].id,
-                'Completed',
-                user.id
+                'Completed'
               );
 
               const invoice = billingService.createInvoice(
@@ -664,11 +669,16 @@ describe('ReportService Property Tests', () => {
             const expectedUtilization = (data.completedAppointments / data.totalAppointments) * 100;
             expect(Math.abs(kpis.appointmentUtilization - expectedUtilization)).toBeLessThan(0.01);
 
-            // Verify patient retention rate (both patients have appointments, patient1 has multiple)
-            const expectedRetention = 50; // 1 out of 2 patients has multiple appointments
+            // Patient retention: patients with more than one appointment / patients with any appointment.
+            // Appointments alternate between patient1 (even index) and patient2 (odd index).
+            const p1Count = Math.ceil(data.totalAppointments / 2);
+            const p2Count = Math.floor(data.totalAppointments / 2);
+            const withAppointments = (p1Count > 0 ? 1 : 0) + (p2Count > 0 ? 1 : 0);
+            const returning = (p1Count > 1 ? 1 : 0) + (p2Count > 1 ? 1 : 0);
+            const expectedRetention = withAppointments > 0 ? (returning / withAppointments) * 100 : 0;
             expect(Math.abs(kpis.patientRetentionRate - expectedRetention)).toBeLessThan(1);
           }
-        ),
+        ).beforeEach(() => { resetData(db); }),
         { numRuns: 100 }
       );
     });

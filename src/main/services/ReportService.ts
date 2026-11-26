@@ -256,7 +256,7 @@ export class ReportService {
     try {
       // Get patient name
       const patientRow = this.db.executeQueryOne<any>(
-        'SELECT first_name || " " || last_name as name FROM patients WHERE id = ?',
+        `SELECT first_name || ' ' || last_name as name FROM patients WHERE id = ?`,
         [patientId]
       );
 
@@ -421,7 +421,7 @@ export class ReportService {
    * Export report to PDF
    * Requirements: 7.6
    */
-  exportToPDF(report: any, reportType: string): Buffer {
+  exportToPDF(report: any, reportType: string): Promise<Buffer> {
     try {
       const doc = new PDFDocument();
       const buffers: Buffer[] = [];
@@ -445,9 +445,12 @@ export class ReportService {
         this.renderInventoryReportPDF(doc, report as InventoryReport);
       }
 
-      doc.end();
-
-      return Buffer.concat(buffers);
+      // PDFKit emits its data asynchronously: wait for 'end' before returning
+      return new Promise<Buffer>((resolve, reject) => {
+        doc.on('end', () => resolve(Buffer.concat(buffers)));
+        doc.on('error', reject);
+        doc.end();
+      });
     } catch (error) {
       logger.error('Failed to export report to PDF', { error, reportType });
       throw error;
@@ -528,7 +531,7 @@ export class ReportService {
       doc
         .fontSize(10)
         .text(
-          `${item.name} (${item.category}): ${item.currentQuantity} ${item.isLowStock ? '⚠️ LOW STOCK' : ''}`
+          `${item.name} (${item.category}): ${item.currentQuantity} ${item.isLowStock ? '** LOW STOCK **' : ''}`
         );
       doc
         .fontSize(9)

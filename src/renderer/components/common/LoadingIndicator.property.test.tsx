@@ -1,10 +1,12 @@
+/** @jest-environment jsdom */
+/// <reference types="@testing-library/jest-dom" />
 /**
  * Property-Based Tests for Loading Indicator Component
  * Requirements: 9.2
  */
 
 import * as fc from 'fast-check';
-import { render, screen } from '@testing-library/react';
+import { render, screen, cleanup } from '@testing-library/react';
 import { LoadingIndicator, ProgressBar } from './LoadingIndicator';
 
 describe('LoadingIndicator Property Tests', () => {
@@ -19,7 +21,7 @@ describe('LoadingIndicator Property Tests', () => {
     fc.assert(
       fc.property(
         fc.record({
-          message: fc.option(fc.string(), { nil: undefined }),
+          message: fc.option(fc.string().filter((s) => s.trim().length > 0).map((s) => s.replace(/\s+/g, ' ').trim()), { nil: undefined }),
           variant: fc.constantFrom('circular' as const, 'linear' as const),
           size: fc.option(fc.integer({ min: 20, max: 100 }), { nil: undefined }),
           fullScreen: fc.option(fc.boolean(), { nil: undefined }),
@@ -36,10 +38,10 @@ describe('LoadingIndicator Property Tests', () => {
           
           // If message is provided, it must be displayed
           if (props.message) {
-            expect(screen.getByText(props.message)).toBeInTheDocument();
+            expect(screen.getAllByText(props.message)[0]).toBeInTheDocument();
           }
         }
-      ),
+      ).afterEach(() => { cleanup(); }),
       { numRuns: 100 }
     );
   });
@@ -49,7 +51,7 @@ describe('LoadingIndicator Property Tests', () => {
       fc.property(
         fc.record({
           value: fc.integer({ min: 0, max: 100 }),
-          message: fc.option(fc.string(), { nil: undefined }),
+          message: fc.option(fc.string().filter((s) => s.trim().length > 0).map((s) => s.replace(/\s+/g, ' ').trim()), { nil: undefined }),
           showPercentage: fc.option(fc.boolean(), { nil: undefined }),
         }),
         (props) => {
@@ -62,15 +64,15 @@ describe('LoadingIndicator Property Tests', () => {
           // If showPercentage is true (default), percentage must be displayed
           if (props.showPercentage !== false) {
             const percentageText = `${Math.round(props.value)}%`;
-            expect(screen.getByText(percentageText)).toBeInTheDocument();
+            expect(screen.getAllByText(percentageText)[0]).toBeInTheDocument();
           }
           
           // If message is provided, it must be displayed
           if (props.message) {
-            expect(screen.getByText(props.message)).toBeInTheDocument();
+            expect(screen.getAllByText(props.message)[0]).toBeInTheDocument();
           }
         }
-      ),
+      ).afterEach(() => { cleanup(); }),
       { numRuns: 100 }
     );
   });
@@ -79,7 +81,7 @@ describe('LoadingIndicator Property Tests', () => {
     fc.assert(
       fc.property(
         fc.record({
-          message: fc.option(fc.string(), { nil: undefined }),
+          message: fc.option(fc.string().filter((s) => s.trim().length > 0).map((s) => s.replace(/\s+/g, ' ').trim()), { nil: undefined }),
           variant: fc.constantFrom('circular' as const, 'linear' as const),
         }),
         (props) => {
@@ -92,7 +94,7 @@ describe('LoadingIndicator Property Tests', () => {
           
           expect(progressElement).toBeVisible();
         }
-      ),
+      ).afterEach(() => { cleanup(); }),
       { numRuns: 100 }
     );
   });

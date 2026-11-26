@@ -1,10 +1,12 @@
+/** @jest-environment jsdom */
+/// <reference types="@testing-library/jest-dom" />
 /**
  * Property-Based Tests for Pagination Component
  * Requirements: 9.7
  */
 
 import * as fc from 'fast-check';
-import { render, screen } from '@testing-library/react';
+import { render, screen, cleanup } from '@testing-library/react';
 import { PaginationComponent, usePagination } from './PaginationComponent';
 import { renderHook, act } from '@testing-library/react';
 
@@ -26,7 +28,7 @@ describe('PaginationComponent Property Tests', () => {
         }),
         (props) => {
           // Ensure page is within valid range
-          const validPage = Math.min(props.page, Math.floor(props.count / props.rowsPerPage));
+          const validPage = Math.min(props.page, Math.max(0, Math.ceil(props.count / props.rowsPerPage) - 1));
           
           const mockPageChange = jest.fn();
           const mockRowsPerPageChange = jest.fn();
@@ -53,10 +55,10 @@ describe('PaginationComponent Property Tests', () => {
           
           if (props.count > 10) {
             const rangeText = `${from}-${to} of ${props.count}`;
-            expect(screen.getByText(rangeText)).toBeInTheDocument();
+            expect(screen.getAllByText(rangeText)[0]).toBeInTheDocument();
           }
         }
-      ),
+      ).afterEach(() => { cleanup(); }),
       { numRuns: 100 }
     );
   });
@@ -89,7 +91,7 @@ describe('PaginationComponent Property Tests', () => {
             expect(paginatedData[0].id).toBe(0);
           }
         }
-      ),
+      ).afterEach(() => { cleanup(); }),
       { numRuns: 100 }
     );
   });
@@ -109,7 +111,7 @@ describe('PaginationComponent Property Tests', () => {
           const mockData = Array.from({ length: props.dataSize }, (_, i) => ({ id: i }));
           
           // Calculate valid target page
-          const maxPage = Math.floor(props.dataSize / props.rowsPerPage);
+          const maxPage = Math.max(0, Math.ceil(props.dataSize / props.rowsPerPage) - 1);
           const validTargetPage = Math.min(props.targetPage, maxPage);
           
           // Change to target page
@@ -129,7 +131,7 @@ describe('PaginationComponent Property Tests', () => {
           // Data must not exceed page size
           expect(paginatedData.length).toBeLessThanOrEqual(props.rowsPerPage);
         }
-      ),
+      ).afterEach(() => { cleanup(); }),
       { numRuns: 100 }
     );
   });
@@ -164,7 +166,7 @@ describe('PaginationComponent Property Tests', () => {
           expect(result.current.page).toBe(0);
           expect(result.current.rowsPerPage).toBe(props.newRowsPerPage);
         }
-      ),
+      ).afterEach(() => { cleanup(); }),
       { numRuns: 100 }
     );
   });

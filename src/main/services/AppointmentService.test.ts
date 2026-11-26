@@ -26,22 +26,22 @@ describe('AppointmentService Unit Tests', () => {
     authService = new AuthService(db);
 
     // Create test users
-    const adminUser = authService.createUser({
+    const adminUser = (await authService.createUser({
       username: 'admin',
       password: 'password123',
       firstName: 'Admin',
       lastName: 'User',
       role: 'Administrator',
-    });
+    })).data!;
     testUserId = adminUser.id;
 
-    const dentist = authService.createUser({
+    const dentist = (await authService.createUser({
       username: 'dentist',
       password: 'password123',
       firstName: 'Test',
       lastName: 'Dentist',
       role: 'Dentist',
-    });
+    })).data!;
     testDentistId = dentist.id;
 
     // Create test patient
@@ -183,14 +183,14 @@ describe('AppointmentService Unit Tests', () => {
       }).toThrow('Appointment conflict detected');
     });
 
-    it('should allow appointments at the same time for different dentists', () => {
-      const dentist2 = authService.createUser({
+    it('should allow appointments at the same time for different dentists', async () => {
+      const dentist2 = (await authService.createUser({
         username: 'dentist2',
         password: 'password123',
         firstName: 'Another',
         lastName: 'Dentist',
         role: 'Dentist',
-      });
+      })).data!;
 
       const startTime = new Date('2024-06-15T10:00:00');
 

@@ -64,6 +64,9 @@ export function transactionToUi(t: any) {
 export function invoiceToUi(inv: any, patientNames: Record<string, string> = {}) {
   return {
     ...inv,
+    // the invoice preview reads `total` on items and `paymentMethod` on payments
+    items: (inv.items || []).map((it: any) => ({ ...it, total: it.totalPrice ?? it.total })),
+    payments: (inv.payments || []).map((p: any) => ({ ...p, paymentMethod: p.method ?? p.paymentMethod })),
     invoiceDate: inv.createdAt,
     total: inv.totalAmount,
     patientName: patientNames[inv.patientId] || inv.patientId,
@@ -320,8 +323,28 @@ export class IpcClient {
     return this.invoke('reports:dailyAppointments', date);
   }
 
+  // The report screens use { startDate, endDate } (yyyy-mm-dd); the backend wants { start, end } as
+  // dates, and the end date should cover the whole day.
+  private toBackendRange(range: any) {
+    if (range && range.start && range.end) return range;
+    return {
+      start: new Date(`${range.startDate}T00:00:00`),
+      end: new Date(`${range.endDate}T23:59:59.999`),
+    };
+  }
+
+  // The screens use kebab-case report types; the report service uses display names.
+  static REPORT_TYPES: Record<string, string> = {
+    'daily-appointments': 'Daily Appointment',
+    revenue: 'Revenue',
+    'visit-history': 'Visit History',
+    inventory: 'Inventory',
+  };
+
   async getRevenueReport(dateRange: any, groupBy: string) {
-    return this.invoke('reports:revenue', dateRange, groupBy);
+    // The "Date" option has no backend grouping: it means one overall total
+    const backendGroup = groupBy === 'dentist' || groupBy === 'treatment' ? groupBy : 'none';
+    return this.invoke('reports:revenue', this.toBackendRange(dateRange), backendGroup);
   }
 
   async getVisitHistoryReport(patientId: string) {
@@ -333,11 +356,11 @@ export class IpcClient {
   }
 
   async exportReportToPDF(report: any, reportType: string) {
-    return this.invoke('reports:exportPDF', report, reportType);
+    return this.invoke('reports:exportPDF', report, IpcClient.REPORT_TYPES[reportType] ?? reportType);
   }
 
   async exportReportToCSV(report: any, reportType: string) {
-    return this.invoke('reports:exportCSV', report, reportType);
+    return this.invoke('reports:exportCSV', report, IpcClient.REPORT_TYPES[reportType] ?? reportType);
   }
 
   async getDashboardAnalytics(date?: string) {
@@ -345,7 +368,7 @@ export class IpcClient {
   }
 
   async getKPIs(dateRange: any) {
-    return this.invoke('reports:kpis', dateRange);
+    return this.invoke('reports:kpis', this.toBackendRange(dateRange));
   }
 
   // ==================== Clinical Notes ====================

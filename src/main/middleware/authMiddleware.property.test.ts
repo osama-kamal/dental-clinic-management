@@ -44,7 +44,7 @@ describe('AuthMiddleware Property Tests', () => {
         fc.asyncProperty(
           fc.record({
             username: fc.string({ minLength: 3, maxLength: 50 }).filter(s => !s.includes("'")),
-            password: fc.string({ minLength: 6, maxLength: 100 }),
+            password: fc.string({ minLength: 6, maxLength: 100 }).filter((s) => s.trim().length > 0),
             firstName: fc.string({ minLength: 1, maxLength: 50 }).filter(s => !s.includes("'")),
             lastName: fc.string({ minLength: 1, maxLength: 50 }).filter(s => !s.includes("'")),
             role: fc.constant<UserRole>('Administrator'),
@@ -93,7 +93,7 @@ describe('AuthMiddleware Property Tests', () => {
         fc.asyncProperty(
           fc.record({
             username: fc.string({ minLength: 3, maxLength: 50 }).filter(s => !s.includes("'")),
-            password: fc.string({ minLength: 6, maxLength: 100 }),
+            password: fc.string({ minLength: 6, maxLength: 100 }).filter((s) => s.trim().length > 0),
             firstName: fc.string({ minLength: 1, maxLength: 50 }).filter(s => !s.includes("'")),
             lastName: fc.string({ minLength: 1, maxLength: 50 }).filter(s => !s.includes("'")),
             role: fc.constant<UserRole>('Dentist'),
@@ -155,7 +155,7 @@ describe('AuthMiddleware Property Tests', () => {
         fc.asyncProperty(
           fc.record({
             username: fc.string({ minLength: 3, maxLength: 50 }).filter(s => !s.includes("'")),
-            password: fc.string({ minLength: 6, maxLength: 100 }),
+            password: fc.string({ minLength: 6, maxLength: 100 }).filter((s) => s.trim().length > 0),
             firstName: fc.string({ minLength: 1, maxLength: 50 }).filter(s => !s.includes("'")),
             lastName: fc.string({ minLength: 1, maxLength: 50 }).filter(s => !s.includes("'")),
             role: fc.constant<UserRole>('Receptionist'),
@@ -217,7 +217,7 @@ describe('AuthMiddleware Property Tests', () => {
         fc.asyncProperty(
           fc.record({
             username: fc.string({ minLength: 3, maxLength: 50 }).filter(s => !s.includes("'")),
-            password: fc.string({ minLength: 6, maxLength: 100 }),
+            password: fc.string({ minLength: 6, maxLength: 100 }).filter((s) => s.trim().length > 0),
             firstName: fc.string({ minLength: 1, maxLength: 50 }).filter(s => !s.includes("'")),
             lastName: fc.string({ minLength: 1, maxLength: 50 }).filter(s => !s.includes("'")),
             role: fc.constantFrom<UserRole>('Dentist', 'Receptionist'), // Non-admin roles
@@ -266,7 +266,7 @@ describe('AuthMiddleware Property Tests', () => {
         fc.asyncProperty(
           fc.record({
             username: fc.string({ minLength: 3, maxLength: 50 }).filter(s => !s.includes("'")),
-            password: fc.string({ minLength: 6, maxLength: 100 }),
+            password: fc.string({ minLength: 6, maxLength: 100 }).filter((s) => s.trim().length > 0),
             firstName: fc.string({ minLength: 1, maxLength: 50 }).filter(s => !s.includes("'")),
             lastName: fc.string({ minLength: 1, maxLength: 50 }).filter(s => !s.includes("'")),
             role: fc.constantFrom<UserRole>('Administrator', 'Dentist', 'Receptionist'),

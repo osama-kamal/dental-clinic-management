@@ -22,7 +22,7 @@ interface Patient {
   emergencyContact?: string;
   emergencyPhone?: string;
   medicalHistory?: string;
-  allergies?: string;
+  allergies?: string | string[];
   medications?: string;
 }
 
@@ -32,6 +32,8 @@ interface PatientDetailProps {
 }
 
 export const PatientDetail: React.FC<PatientDetailProps> = ({ patient, onClose }) => {
+  // the backend stores allergies as a list; an empty list means none
+  const allergyText = Array.isArray(patient.allergies) ? patient.allergies.join(', ') : (patient.allergies || '').trim();
   const calculateAge = (dob: string): number => {
     const birthDate = new Date(dob);
     const today = new Date();
@@ -45,7 +47,7 @@ export const PatientDetail: React.FC<PatientDetailProps> = ({ patient, onClose }
 
   return (
     <Box>
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 1, mb: 3 }}>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
           <Button variant="outlined" startIcon={<ArrowBack />} onClick={onClose}>
             Back
@@ -59,12 +61,12 @@ export const PatientDetail: React.FC<PatientDetailProps> = ({ patient, onClose }
         </Button>
       </Box>
 
-      {patient.allergies && (
+      {allergyText && (
         <Alert severity="warning" icon={<Warning />} sx={{ mb: 3 }}>
           <Typography variant="subtitle1" fontWeight="bold">
             Allergy Warning
           </Typography>
-          <Typography>{patient.allergies}</Typography>
+          <Typography>{allergyText}</Typography>
         </Alert>
       )}
 
@@ -154,8 +156,8 @@ export const PatientDetail: React.FC<PatientDetailProps> = ({ patient, onClose }
                 <Typography variant="subtitle2" color="text.secondary" gutterBottom>
                   Allergies
                 </Typography>
-                {patient.allergies ? (
-                  <Chip label={patient.allergies} color="warning" />
+                {allergyText ? (
+                  <Chip label={allergyText} color="warning" />
                 ) : (
                   <Typography variant="body1">No known allergies</Typography>
                 )}

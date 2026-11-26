@@ -116,7 +116,7 @@ export const PaymentForm: React.FC<PaymentFormProps> = ({ invoice, open, onClose
                 <MenuItem value="Credit Card">Credit Card</MenuItem>
                 <MenuItem value="Debit Card">Debit Card</MenuItem>
                 <MenuItem value="Check">Check</MenuItem>
-                <MenuItem value="Bank Transfer">Bank Transfer</MenuItem>
+                <MenuItem value="Insurance">Insurance</MenuItem>
               </Select>
             </FormControl>
           </Grid>

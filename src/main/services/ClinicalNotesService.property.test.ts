@@ -1,4 +1,5 @@
 import fc from 'fast-check';
+import { resetData } from '../../test/dataReset';
 import { ClinicalNotesService } from './ClinicalNotesService';
 import { DatabaseManager } from '../../database/DatabaseManager';
 import { PatientService } from './PatientService';
@@ -11,9 +12,9 @@ describe('ClinicalNotesService Property Tests', () => {
   let patientService: PatientService;
   let authService: AuthService;
 
-  beforeEach(() => {
+  beforeEach(async () => {
     db = new DatabaseManager(':memory:');
-    db.initialize();
+    await db.initialize();
     clinicalNotesService = new ClinicalNotesService(db);
     patientService = new PatientService(db);
     authService = new AuthService(db);
@@ -24,14 +25,14 @@ describe('ClinicalNotesService Property Tests', () => {
   });
 
   // Helper function to create test user
-  const createTestUser = (role: 'Administrator' | 'Dentist' | 'Receptionist' = 'Dentist') => {
-    return authService.createUser({
+  const createTestUser = async (role: 'Administrator' | 'Dentist' | 'Receptionist' = 'Dentist') => {
+    return (await authService.createUser({
       username: `user_${randomUUID()}`,
       password: 'password123',
       firstName: 'Test',
       lastName: 'User',
       role,
-    });
+    })).data!;
   };
 
   // Helper function to create test patient
@@ -51,15 +52,15 @@ describe('ClinicalNotesService Property Tests', () => {
    * Validates: Requirements 13.2
    */
   describe('Property 70: Clinical note metadata', () => {
-    it('should have timestamp and user association', () => {
-      fc.assert(
-        fc.property(
+    it('should have timestamp and user association', async () => {
+      await fc.assert(
+        fc.asyncProperty(
           fc.record({
-            noteText: fc.string({ minLength: 10, maxLength: 500 }),
+            noteText: fc.string({ minLength: 10, maxLength: 500 }).filter((s) => s.trim().length > 0).map((s) => s.trim()),
             noteType: fc.constantFrom('General', 'Treatment', 'Consultation'),
           }),
-          (data) => {
-            const user = createTestUser();
+          async (data) => {
+            const user = await createTestUser();
             const patient = createTestPatient();
 
             const beforeCreate = new Date();
@@ -86,7 +87,7 @@ describe('ClinicalNotesService Property Tests', () => {
             expect(note.createdAt.getTime()).toBeGreaterThanOrEqual(beforeCreate.getTime() - 1000);
             expect(note.createdAt.getTime()).toBeLessThanOrEqual(afterCreate.getTime() + 1000);
           }
-        ),
+        ).beforeEach(() => { resetData(db); }),
         { numRuns: 100 }
       );
     });
@@ -99,16 +100,16 @@ describe('ClinicalNotesService Property Tests', () => {
    * Validates: Requirements 13.5
    */
   describe('Property 72: Clinical note history', () => {
-    it('should track modification with updated timestamp', () => {
-      fc.assert(
-        fc.property(
+    it('should track modification with updated timestamp', async () => {
+      await fc.assert(
+        fc.asyncProperty(
           fc.record({
-            originalText: fc.string({ minLength: 10, maxLength: 200 }),
-            updatedText: fc.string({ minLength: 10, maxLength: 200 }),
+            originalText: fc.string({ minLength: 10, maxLength: 200 }).filter((s) => s.trim().length > 0).map((s) => s.trim()),
+            updatedText: fc.string({ minLength: 10, maxLength: 200 }).filter((s) => s.trim().length > 0).map((s) => s.trim()),
             noteType: fc.constantFrom('General', 'Treatment', 'Consultation'),
           }),
-          (data) => {
-            const user = createTestUser();
+          async (data) => {
+            const user = await createTestUser();
             const patient = createTestPatient();
 
             // Create original note
@@ -141,7 +142,7 @@ describe('ClinicalNotesService Property Tests', () => {
             const afterUpdate = new Date();
 
             // Verify modification tracking
-            expect(updatedNote.noteText).toBe(data.updatedText);
+            expect(updatedNote.noteText).toBe(data.updatedText.trim());
             expect(updatedNote.createdAt.getTime()).toBe(originalCreatedAt.getTime());
             expect(updatedNote.updatedAt.getTime()).toBeGreaterThan(originalUpdatedAt.getTime());
             expect(updatedNote.updatedAt.getTime()).toBeGreaterThanOrEqual(
@@ -151,7 +152,7 @@ describe('ClinicalNotesService Property Tests', () => {
               afterUpdate.getTime() + 1000
             );
           }
-        ),
+        ).beforeEach(() => { resetData(db); }),
         { numRuns: 100 }
       );
     });
@@ -164,16 +165,16 @@ describe('ClinicalNotesService Property Tests', () => {
    * Validates: Requirements 13.6
    */
   describe('Property 73: Attachment storage', () => {
-    it('should store attachment with complete metadata', () => {
-      fc.assert(
-        fc.property(
+    it('should store attachment with complete metadata', async () => {
+      await fc.assert(
+        fc.asyncProperty(
           fc.record({
-            fileName: fc.string({ minLength: 5, maxLength: 50 }),
+            fileName: fc.string({ minLength: 5, maxLength: 50 }).filter((s) => s.trim().length > 0).map((s) => s.trim()),
             fileType: fc.constantFrom('image/jpeg', 'image/png', 'application/pdf'),
             fileSize: fc.integer({ min: 100, max: 10000 }),
           }),
-          (data) => {
-            const user = createTestUser();
+          async (data) => {
+            const user = await createTestUser();
             const patient = createTestPatient();
 
             // Create file data buffer
@@ -195,7 +196,7 @@ describe('ClinicalNotesService Property Tests', () => {
             // Verify metadata
             expect(attachment.id).toBeDefined();
             expect(attachment.patientId).toBe(patient.id);
-            expect(attachment.fileName).toBe(data.fileName);
+            expect(attachment.fileName).toBe(data.fileName.trim());
             expect(attachment.fileType).toBe(data.fileType);
             expect(attachment.fileSize).toBe(data.fileSize);
             expect(attachment.uploadedBy).toBe(user.id);
@@ -206,7 +207,7 @@ describe('ClinicalNotesService Property Tests', () => {
             expect(attachment.fileData.length).toBe(data.fileSize);
             expect(Buffer.compare(attachment.fileData, fileData)).toBe(0);
           }
-        ),
+        ).beforeEach(() => { resetData(db); }),
         { numRuns: 100 }
       );
     });
@@ -219,12 +220,12 @@ describe('ClinicalNotesService Property Tests', () => {
    * Validates: Requirements 13.7
    */
   describe('Property 74: Attachment format support', () => {
-    it('should accept valid file formats', () => {
-      fc.assert(
-        fc.property(
+    it('should accept valid file formats', async () => {
+      await fc.assert(
+        fc.asyncProperty(
           fc.constantFrom('image/jpeg', 'image/png', 'application/pdf'),
-          (fileType) => {
-            const user = createTestUser();
+          async (fileType) => {
+            const user = await createTestUser();
             const patient = createTestPatient();
 
             const fileData = Buffer.from('test file content');
@@ -242,17 +243,17 @@ describe('ClinicalNotesService Property Tests', () => {
               );
             }).not.toThrow();
           }
-        ),
+        ).beforeEach(() => { resetData(db); }),
         { numRuns: 100 }
       );
     });
 
-    it('should reject invalid file formats', () => {
-      fc.assert(
-        fc.property(
+    it('should reject invalid file formats', async () => {
+      await fc.assert(
+        fc.asyncProperty(
           fc.constantFrom('text/plain', 'application/zip', 'video/mp4', 'audio/mp3'),
-          (fileType) => {
-            const user = createTestUser();
+          async (fileType) => {
+            const user = await createTestUser();
             const patient = createTestPatient();
 
             const fileData = Buffer.from('test file content');
@@ -270,7 +271,7 @@ describe('ClinicalNotesService Property Tests', () => {
               );
             }).toThrow('Invalid file type');
           }
-        ),
+        ).beforeEach(() => { resetData(db); }),
         { numRuns: 100 }
       );
     });
@@ -285,16 +286,16 @@ describe('ClinicalNotesService Property Tests', () => {
    * Validates: Requirements 13.8
    */
   describe('Property 75: Attachment inline viewing', () => {
-    it('should retrieve attachment with complete data for inline viewing', () => {
-      fc.assert(
-        fc.property(
+    it('should retrieve attachment with complete data for inline viewing', async () => {
+      await fc.assert(
+        fc.asyncProperty(
           fc.record({
-            fileName: fc.string({ minLength: 5, maxLength: 50 }),
+            fileName: fc.string({ minLength: 5, maxLength: 50 }).filter((s) => s.trim().length > 0).map((s) => s.trim()),
             fileType: fc.constantFrom('image/jpeg', 'image/png', 'application/pdf'),
             fileSize: fc.integer({ min: 100, max: 5000 }),
           }),
-          (data) => {
-            const user = createTestUser();
+          async (data) => {
+            const user = await createTestUser();
             const patient = createTestPatient();
 
             // Create file data
@@ -326,7 +327,7 @@ describe('ClinicalNotesService Property Tests', () => {
             // Verify data integrity (can be used for inline viewing)
             expect(Buffer.compare(retrieved!.fileData, fileData)).toBe(0);
           }
-        ),
+        ).beforeEach(() => { resetData(db); }),
         { numRuns: 100 }
       );
     });
@@ -336,18 +337,18 @@ describe('ClinicalNotesService Property Tests', () => {
    * Additional test: Clinical notes completeness for patient
    */
   describe('Clinical notes completeness', () => {
-    it('should retrieve all notes for a patient in chronological order', () => {
-      fc.assert(
-        fc.property(
+    it('should retrieve all notes for a patient in chronological order', async () => {
+      await fc.assert(
+        fc.asyncProperty(
           fc.array(
             fc.record({
-              noteText: fc.string({ minLength: 10, maxLength: 200 }),
+              noteText: fc.string({ minLength: 10, maxLength: 200 }).filter((s) => s.trim().length > 0).map((s) => s.trim()),
               noteType: fc.constantFrom('General', 'Treatment', 'Consultation'),
             }),
             { minLength: 1, maxLength: 10 }
           ),
-          (notes) => {
-            const user = createTestUser();
+          async (notes) => {
+            const user = await createTestUser();
             const patient = createTestPatient();
 
             // Create notes
@@ -375,7 +376,7 @@ describe('ClinicalNotesService Property Tests', () => {
               );
             }
           }
-        ),
+        ).beforeEach(() => { resetData(db); }),
         { numRuns: 100 }
       );
     });
@@ -385,19 +386,19 @@ describe('ClinicalNotesService Property Tests', () => {
    * Additional test: Attachment metadata retrieval
    */
   describe('Attachment metadata retrieval', () => {
-    it('should retrieve attachment metadata without file data', () => {
-      fc.assert(
-        fc.property(
+    it('should retrieve attachment metadata without file data', async () => {
+      await fc.assert(
+        fc.asyncProperty(
           fc.array(
             fc.record({
-              fileName: fc.string({ minLength: 5, maxLength: 30 }),
+              fileName: fc.string({ minLength: 5, maxLength: 30 }).filter((s) => s.trim().length > 0).map((s) => s.trim()),
               fileType: fc.constantFrom('image/jpeg', 'image/png', 'application/pdf'),
               fileSize: fc.integer({ min: 100, max: 5000 }),
             }),
             { minLength: 1, maxLength: 5 }
           ),
-          (attachments) => {
-            const user = createTestUser();
+          async (attachments) => {
+            const user = await createTestUser();
             const patient = createTestPatient();
 
             // Upload attachments
@@ -430,7 +431,7 @@ describe('ClinicalNotesService Property Tests', () => {
               expect((meta as any).fileData).toBeUndefined();
             });
           }
-        ),
+        ).beforeEach(() => { resetData(db); }),
         { numRuns: 100 }
       );
     });

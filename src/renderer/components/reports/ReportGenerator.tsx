@@ -1,3 +1,4 @@
+import { downloadFile } from '../../utils/downloadFile';
 import React, { useState } from 'react';
 import {
   Box,
@@ -98,8 +99,9 @@ export const ReportGenerator: React.FC<ReportGeneratorProps> = ({ onReportGenera
 
     try {
       const response = await ipcClient.exportReportToPDF(report, reportType);
-      if (response.success) {
-        alert('Report exported to PDF successfully');
+      if (response.success && response.data) {
+        downloadFile(response.data, 'application/pdf', `${reportType}-report.pdf`);
+        alert('Report PDF downloaded');
       } else {
         setError(response.error || 'Failed to export PDF');
       }
@@ -113,8 +115,9 @@ export const ReportGenerator: React.FC<ReportGeneratorProps> = ({ onReportGenera
 
     try {
       const response = await ipcClient.exportReportToCSV(report, reportType);
-      if (response.success) {
-        alert('Report exported to CSV successfully');
+      if (response.success && response.data !== undefined) {
+        downloadFile(response.data, 'text/csv', `${reportType}-report.csv`);
+        alert('Report CSV downloaded');
       } else {
         setError(response.error || 'Failed to export CSV');
       }

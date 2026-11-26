@@ -1,4 +1,5 @@
 import fc from 'fast-check';
+import { resetData } from '../../test/dataReset';
 import { InventoryService, InventoryItemInput } from './InventoryService';
 import { DatabaseManager } from '../../database/DatabaseManager';
 import fs from 'fs';
@@ -44,7 +45,7 @@ describe('InventoryService Property Tests', () => {
       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         userId,
-        'testuser',
+        `user_${userId}`,
         'hash',
         'Test',
         'User',
@@ -59,9 +60,9 @@ describe('InventoryService Property Tests', () => {
 
   // Arbitrary for InventoryItemInput
   const inventoryItemInputArb = fc.record({
-    name: fc.string({ minLength: 1, maxLength: 100 }).filter(s => !s.includes("'")),
-    category: fc.string({ minLength: 1, maxLength: 50 }).filter(s => !s.includes("'")),
-    unitOfMeasure: fc.string({ minLength: 1, maxLength: 20 }).filter(s => !s.includes("'")),
+    name: fc.string({ minLength: 1, maxLength: 100 }).filter(s => s.trim().length > 0 && !s.includes("'")).map((s) => s.trim()),
+    category: fc.string({ minLength: 1, maxLength: 50 }).filter(s => s.trim().length > 0 && !s.includes("'")).map((s) => s.trim()),
+    unitOfMeasure: fc.string({ minLength: 1, maxLength: 20 }).filter(s => s.trim().length > 0 && !s.includes("'")).map((s) => s.trim()),
     currentQuantity: fc.double({ min: 0, max: 10000, noNaN: true }),
     minimumThreshold: fc.double({ min: 0, max: 100, noNaN: true }),
     unitCost: fc.double({ min: 0, max: 1000, noNaN: true }),
@@ -98,7 +99,7 @@ describe('InventoryService Property Tests', () => {
               inventoryService.createItem(invalidData);
             }).toThrow();
           }
-        ),
+        ).beforeEach(() => { resetData(db); }),
         { numRuns: 100 }
       );
     });
@@ -118,7 +119,7 @@ describe('InventoryService Property Tests', () => {
             expect(item.minimumThreshold).toBeCloseTo(itemData.minimumThreshold, 2);
             expect(item.unitCost).toBeCloseTo(itemData.unitCost, 2);
           }
-        ),
+        ).beforeEach(() => { resetData(db); }),
         { numRuns: 100 }
       );
     });
@@ -132,7 +133,7 @@ describe('InventoryService Property Tests', () => {
         fc.property(
           inventoryItemInputArb,
           fc.double({ min: -100, max: 100, noNaN: true }).filter(n => n !== 0),
-          fc.string({ minLength: 1, maxLength: 200 }).filter(s => !s.includes("'")),
+          fc.string({ minLength: 1, maxLength: 200 }).filter(s => s.trim().length > 0 && !s.includes("'")).map((s) => s.trim()),
           (itemData, quantityChange, reason) => {
             const userId = createTestUser();
 
@@ -163,7 +164,7 @@ describe('InventoryService Property Tests', () => {
             expect(lastTransaction.performedBy).toBe(userId);
             expect(['Addition', 'Usage', 'Adjustment']).toContain(lastTransaction.transactionType);
           }
-        ),
+        ).beforeEach(() => { resetData(db); }),
         { numRuns: 100 }
       );
     });
@@ -177,9 +178,9 @@ describe('InventoryService Property Tests', () => {
         fc.property(
           fc.array(
             fc.record({
-              name: fc.string({ minLength: 1, maxLength: 100 }).filter(s => !s.includes("'")),
-              category: fc.string({ minLength: 1, maxLength: 50 }).filter(s => !s.includes("'")),
-              unitOfMeasure: fc.string({ minLength: 1, maxLength: 20 }).filter(s => !s.includes("'")),
+              name: fc.string({ minLength: 1, maxLength: 100 }).filter(s => s.trim().length > 0 && !s.includes("'")).map((s) => s.trim()),
+              category: fc.string({ minLength: 1, maxLength: 50 }).filter(s => s.trim().length > 0 && !s.includes("'")).map((s) => s.trim()),
+              unitOfMeasure: fc.string({ minLength: 1, maxLength: 20 }).filter(s => s.trim().length > 0 && !s.includes("'")).map((s) => s.trim()),
               currentQuantity: fc.double({ min: 0, max: 50, noNaN: true }),
               minimumThreshold: fc.double({ min: 51, max: 100, noNaN: true }),
               unitCost: fc.double({ min: 0, max: 1000, noNaN: true }),
@@ -202,7 +203,7 @@ describe('InventoryService Property Tests', () => {
               expect(found!.currentQuantity).toBeLessThan(found!.minimumThreshold);
             }
           }
-        ),
+        ).beforeEach(() => { resetData(db); }),
         { numRuns: 100 }
       );
     });
@@ -233,7 +234,7 @@ describe('InventoryService Property Tests', () => {
               inventoryService.updateQuantity(item.id, quantityChange, 'Test reason', '');
             }).toThrow('User authorization is required');
           }
-        ),
+        ).beforeEach(() => { resetData(db); }),
         { numRuns: 100 }
       );
     });
@@ -243,7 +244,7 @@ describe('InventoryService Property Tests', () => {
         fc.property(
           inventoryItemInputArb,
           fc.double({ min: -10, max: 10, noNaN: true }).filter(n => n !== 0),
-          fc.string({ minLength: 1, maxLength: 200 }).filter(s => !s.includes("'")),
+          fc.string({ minLength: 1, maxLength: 200 }).filter(s => s.trim().length > 0 && !s.includes("'")).map((s) => s.trim()),
           (itemData, quantityChange, reason) => {
             const userId = createTestUser();
             const item = inventoryService.createItem({
@@ -260,7 +261,7 @@ describe('InventoryService Property Tests', () => {
 
             expect(updated.currentQuantity).toBeCloseTo(100 + quantityChange, 2);
           }
-        ),
+        ).beforeEach(() => { resetData(db); }),
         { numRuns: 100 }
       );
     });
@@ -281,7 +282,7 @@ describe('InventoryService Property Tests', () => {
 
             expect(calculatedValue).toBeCloseTo(expectedValue, 2);
           }
-        ),
+        ).beforeEach(() => { resetData(db); }),
         { numRuns: 100 }
       );
     });
@@ -305,7 +306,7 @@ describe('InventoryService Property Tests', () => {
 
             expect(calculatedTotal).toBeCloseTo(expectedTotal, 2);
           }
-        ),
+        ).beforeEach(() => { resetData(db); }),
         { numRuns: 100 }
       );
     });
@@ -317,12 +318,12 @@ describe('InventoryService Property Tests', () => {
     it('should return only items matching all applied filters', () => {
       fc.assert(
         fc.property(
-          fc.string({ minLength: 1, maxLength: 50 }).filter(s => !s.includes("'")),
+          fc.string({ minLength: 1, maxLength: 50 }).filter(s => s.trim().length > 0 && !s.includes("'")).map((s) => s.trim()),
           fc.array(
             fc.record({
-              name: fc.string({ minLength: 1, maxLength: 100 }).filter(s => !s.includes("'")),
-              category: fc.string({ minLength: 1, maxLength: 50 }).filter(s => !s.includes("'")),
-              unitOfMeasure: fc.string({ minLength: 1, maxLength: 20 }).filter(s => !s.includes("'")),
+              name: fc.string({ minLength: 1, maxLength: 100 }).filter(s => s.trim().length > 0 && !s.includes("'")).map((s) => s.trim()),
+              category: fc.string({ minLength: 1, maxLength: 50 }).filter(s => s.trim().length > 0 && !s.includes("'")).map((s) => s.trim()),
+              unitOfMeasure: fc.string({ minLength: 1, maxLength: 20 }).filter(s => s.trim().length > 0 && !s.includes("'")).map((s) => s.trim()),
               currentQuantity: fc.double({ min: 0, max: 100, noNaN: true }),
               minimumThreshold: fc.double({ min: 0, max: 100, noNaN: true }),
               unitCost: fc.double({ min: 0, max: 1000, noNaN: true }),
@@ -349,7 +350,7 @@ describe('InventoryService Property Tests', () => {
               expect(result.category).toBe(targetCategory);
             }
           }
-        ),
+        ).beforeEach(() => { resetData(db); }),
         { numRuns: 100 }
       );
     });

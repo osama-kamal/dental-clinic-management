@@ -289,7 +289,7 @@ export class AppointmentService {
         WHERE dentist_id = ?
         AND status != 'Cancelled'
         AND (
-          (start_time < ? AND datetime(start_time, '+' || duration || ' minutes') > ?)
+          (start_time < ? AND strftime('%Y-%m-%dT%H:%M:%fZ', start_time, '+' || duration || ' minutes') > ?)
         )
       `;
       const params: any[] = [

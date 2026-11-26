@@ -29,8 +29,11 @@ interface Patient {
   dateOfBirth: string;
   phone: string;
   email?: string;
-  allergies?: string;
+  allergies?: string | string[];
 }
+
+const hasAllergies = (a?: string | string[]): boolean =>
+  Array.isArray(a) ? a.length > 0 : !!a && a.trim() !== '';
 
 export const PatientList: React.FC = () => {
   const [patients, setPatients] = useState<Patient[]>([]);
@@ -133,7 +136,7 @@ export const PatientList: React.FC = () => {
 
   return (
     <Box>
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 1, mb: 3 }}>
         <Typography variant="h4">Patients</Typography>
         <Button variant="contained" startIcon={<Add />} onClick={handleAddPatient}>
           Add Patient
@@ -168,14 +171,14 @@ export const PatientList: React.FC = () => {
       ) : (
         <Paper>
           <TableContainer>
-            <Table>
+            <Table sx={{ '& .MuiTableCell-root': { px: { xs: 1, md: 2 } } }}>
               <TableHead>
                 <TableRow>
-                  <TableCell>Patient ID</TableCell>
+                  <TableCell sx={{ display: { xs: 'none', md: 'table-cell' } }}>Patient ID</TableCell>
                   <TableCell>Name</TableCell>
-                  <TableCell>Date of Birth</TableCell>
+                  <TableCell sx={{ display: { xs: 'none', md: 'table-cell' } }}>Date of Birth</TableCell>
                   <TableCell>Phone</TableCell>
-                  <TableCell>Email</TableCell>
+                  <TableCell sx={{ display: { xs: 'none', md: 'table-cell' } }}>Email</TableCell>
                   <TableCell>Allergies</TableCell>
                   <TableCell align="right">Actions</TableCell>
                 </TableRow>
@@ -185,15 +188,15 @@ export const PatientList: React.FC = () => {
                   .slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage)
                   .map((patient) => (
                     <TableRow key={patient.id} hover>
-                      <TableCell>{patient.id}</TableCell>
+                      <TableCell sx={{ display: { xs: 'none', md: 'table-cell' } }}>{patient.id}</TableCell>
                       <TableCell>
                         {patient.firstName} {patient.lastName}
                       </TableCell>
-                      <TableCell>{new Date(patient.dateOfBirth).toLocaleDateString()}</TableCell>
-                      <TableCell>{patient.phone}</TableCell>
-                      <TableCell>{patient.email || '-'}</TableCell>
+                      <TableCell sx={{ display: { xs: 'none', md: 'table-cell' } }}>{new Date(patient.dateOfBirth).toLocaleDateString()}</TableCell>
+                      <TableCell sx={{ whiteSpace: 'nowrap' }}>{patient.phone}</TableCell>
+                      <TableCell sx={{ display: { xs: 'none', md: 'table-cell' } }}>{patient.email || '-'}</TableCell>
                       <TableCell>
-                        {patient.allergies ? (
+                        {hasAllergies(patient.allergies) ? (
                           <Chip label="Has Allergies" color="warning" size="small" />
                         ) : (
                           '-'

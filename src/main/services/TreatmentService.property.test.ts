@@ -1,4 +1,5 @@
 import fc from 'fast-check';
+import { resetData } from '../../test/dataReset';
 import { TreatmentService, TreatmentInput, MaterialUsage } from './TreatmentService';
 import { DatabaseManager } from '../../database/DatabaseManager';
 import { TreatmentStatus } from '../../shared/types';
@@ -71,7 +72,7 @@ describe('TreatmentService Property Tests', () => {
       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         userId,
-        'testuser',
+        `user_${userId}`,
         'hash',
         'Test',
         'User',
@@ -86,8 +87,8 @@ describe('TreatmentService Property Tests', () => {
 
   // Arbitrary for TreatmentInput
   const treatmentInputArb = fc.record({
-    code: fc.string({ minLength: 1, maxLength: 20 }).filter(s => !s.includes("'")),
-    description: fc.string({ minLength: 1, maxLength: 200 }).filter(s => !s.includes("'")),
+    code: fc.string({ minLength: 1, maxLength: 20 }).filter(s => s.trim().length > 0 && !s.includes("'")).map((s) => s.trim()),
+    description: fc.string({ minLength: 1, maxLength: 200 }).filter(s => s.trim().length > 0 && !s.includes("'")).map((s) => s.trim()),
     estimatedCost: fc.double({ min: 0, max: 10000, noNaN: true }),
     notes: fc.option(fc.string({ maxLength: 500 }).filter(s => !s.includes("'")), { nil: undefined }),
   });
@@ -116,7 +117,7 @@ describe('TreatmentService Property Tests', () => {
             expect(patient).toBeDefined();
             expect(patient.id).toBe(patientId);
           }
-        ),
+        ).beforeEach(() => { resetData(db); }),
         { numRuns: 100 }
       );
     });
@@ -155,7 +156,7 @@ describe('TreatmentService Property Tests', () => {
               expect(['Planned', 'In Progress', 'Completed', 'Cancelled']).toContain(treatment.status);
             }
           }
-        ),
+        ).beforeEach(() => { resetData(db); }),
         { numRuns: 100 }
       );
     });
@@ -197,7 +198,7 @@ describe('TreatmentService Property Tests', () => {
             const timeDiff = now.getTime() - completedTreatment.completedDate!.getTime();
             expect(timeDiff).toBeLessThan(60000); // Less than 1 minute
           }
-        ),
+        ).beforeEach(() => { resetData(db); }),
         { numRuns: 100 }
       );
     });
@@ -222,7 +223,7 @@ describe('TreatmentService Property Tests', () => {
             // Verify total matches
             expect(plan.totalEstimatedCost).toBeCloseTo(expectedTotal, 2);
           }
-        ),
+        ).beforeEach(() => { resetData(db); }),
         { numRuns: 100 }
       );
     });
@@ -299,7 +300,7 @@ describe('TreatmentService Property Tests', () => {
               expect(item.current_quantity).toBeCloseTo(expectedQuantity, 2);
             }
           }
-        ),
+        ).beforeEach(() => { resetData(db); }),
         { numRuns: 100 }
       );
     });
@@ -346,7 +347,7 @@ describe('TreatmentService Property Tests', () => {
             const timeDiff = now.getTime() - updatedTreatment.updatedAt.getTime();
             expect(timeDiff).toBeLessThan(60000); // Less than 1 minute
           }
-        ),
+        ).beforeEach(() => { resetData(db); }),
         { numRuns: 100 }
       );
     });
@@ -354,9 +355,9 @@ describe('TreatmentService Property Tests', () => {
 
   // Arbitrary for TreatmentTemplateInput
   const treatmentTemplateInputArb = fc.record({
-    code: fc.string({ minLength: 1, maxLength: 20 }).filter(s => !s.includes("'")),
-    description: fc.string({ minLength: 1, maxLength: 200 }).filter(s => !s.includes("'")),
-    category: fc.string({ minLength: 1, maxLength: 50 }).filter(s => !s.includes("'")),
+    code: fc.string({ minLength: 1, maxLength: 20 }).filter(s => s.trim().length > 0 && !s.includes("'")).map((s) => s.trim()),
+    description: fc.string({ minLength: 1, maxLength: 200 }).filter(s => s.trim().length > 0 && !s.includes("'")).map((s) => s.trim()),
+    category: fc.string({ minLength: 1, maxLength: 50 }).filter(s => s.trim().length > 0 && !s.includes("'")).map((s) => s.trim()),
     defaultCost: fc.double({ min: 0, max: 10000, noNaN: true }),
     defaultDuration: fc.option(fc.integer({ min: 5, max: 300 }), { nil: undefined }),
   });
@@ -369,7 +370,7 @@ describe('TreatmentService Property Tests', () => {
         fc.property(
           treatmentTemplateInputArb,
           fc.record({
-            description: fc.string({ minLength: 1, maxLength: 200 }).filter(s => !s.includes("'")),
+            description: fc.string({ minLength: 1, maxLength: 200 }).filter(s => s.trim().length > 0 && !s.includes("'")).map((s) => s.trim()),
             defaultCost: fc.double({ min: 0, max: 10000, noNaN: true }),
           }),
           (templateData, updateData) => {
@@ -390,7 +391,7 @@ describe('TreatmentService Property Tests', () => {
             expect(deleted).toBeDefined();
             expect(deleted!.isActive).toBe(false);
           }
-        ),
+        ).beforeEach(() => { resetData(db); }),
         { numRuns: 100 }
       );
     });
@@ -414,6 +415,8 @@ describe('TreatmentService Property Tests', () => {
             // Create treatment from template
             const treatmentInput = treatmentService.createTreatmentFromTemplate(template.id);
             const originalCost = treatmentInput.estimatedCost;
+            // the 'plan keeps its old cost' check is only meaningful when the new cost differs
+            fc.pre(Math.abs(newCost - originalCost) >= 0.01);
 
             // Create treatment plan using the template
             const plan = treatmentService.createTreatmentPlan(
@@ -433,7 +436,7 @@ describe('TreatmentService Property Tests', () => {
             expect(retrievedPlan!.treatments[0].estimatedCost).toBeCloseTo(originalCost, 2);
             expect(retrievedPlan!.treatments[0].estimatedCost).not.toBeCloseTo(newCost, 2);
           }
-        ),
+        ).beforeEach(() => { resetData(db); }),
         { numRuns: 100 }
       );
     });
@@ -458,7 +461,7 @@ describe('TreatmentService Property Tests', () => {
             expect(treatmentInput.description).toBe(template.description);
             expect(treatmentInput.estimatedCost).toBeCloseTo(template.defaultCost, 2);
           }
-        ),
+        ).beforeEach(() => { resetData(db); }),
         { numRuns: 100 }
       );
     });

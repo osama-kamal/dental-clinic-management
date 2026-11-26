@@ -1,10 +1,12 @@
+/** @jest-environment jsdom */
+/// <reference types="@testing-library/jest-dom" />
 /**
  * Property-Based Tests for Appointment Components
  * Requirements: 3.5
  */
 
 import * as fc from 'fast-check';
-import { render } from '@testing-library/react';
+import { render, cleanup } from '@testing-library/react';
 import { AppointmentCalendar } from './AppointmentCalendar';
 
 // Mock IPC client
@@ -13,9 +15,9 @@ jest.mock('../../api/ipcClient');
 const appointmentArbitrary = fc.record({
   id: fc.uuid(),
   patientId: fc.uuid(),
-  patientName: fc.string({ minLength: 3, maxLength: 50 }),
+  patientName: fc.string({ minLength: 3, maxLength: 50 }).filter((s) => s.trim().length > 0).map((s) => s.replace(/\s+/g, ' ').trim()),
   dentistId: fc.uuid(),
-  dentistName: fc.string({ minLength: 3, maxLength: 50 }),
+  dentistName: fc.string({ minLength: 3, maxLength: 50 }).filter((s) => s.trim().length > 0).map((s) => s.replace(/\s+/g, ' ').trim()),
   appointmentDate: fc.date({ min: new Date('2024-01-01'), max: new Date('2024-12-31') })
     .map(d => d.toISOString().split('T')[0]),
   startTime: fc.constantFrom('08:00', '09:00', '10:00', '11:00', '13:00', '14:00', '15:00', '16:00'),
@@ -27,7 +29,7 @@ const appointmentArbitrary = fc.record({
     'Cancelled' as const,
     'No-Show' as const
   ),
-  reason: fc.option(fc.string({ maxLength: 200 }), { nil: undefined }),
+  reason: fc.option(fc.string({ maxLength: 200 }).filter((s) => s.trim().length > 0).map((s) => s.replace(/\s+/g, ' ').trim()), { nil: undefined }),
 });
 
 describe('Appointment Components Property Tests', () => {
@@ -71,7 +73,7 @@ describe('Appointment Components Property Tests', () => {
           const uniqueColors = new Set(allColors);
           expect(uniqueColors.size).toBe(allColors.length);
         }
-      ),
+      ).afterEach(() => { cleanup(); }),
       { numRuns: 100 }
     );
   });
@@ -112,7 +114,7 @@ describe('Appointment Components Property Tests', () => {
             expect(color1).toBe(color2);
           }
         }
-      ),
+      ).afterEach(() => { cleanup(); }),
       { numRuns: 100 }
     );
   });
@@ -134,7 +136,7 @@ describe('Appointment Components Property Tests', () => {
           expect(statusColors[appointment.status]).toBeDefined();
           expect(statusColors[appointment.status]).toMatch(/^#[0-9a-f]{6}$/i);
         }
-      ),
+      ).afterEach(() => { cleanup(); }),
       { numRuns: 100 }
     );
   });
@@ -165,7 +167,7 @@ describe('Appointment Components Property Tests', () => {
           expect(color1).toBe(color2);
           expect(color2).toBe(color3);
         }
-      ),
+      ).afterEach(() => { cleanup(); }),
       { numRuns: 100 }
     );
   });
@@ -195,7 +197,7 @@ describe('Appointment Components Property Tests', () => {
           
           expect(statusColors.size).toBe(5);
         }
-      ),
+      ).afterEach(() => { cleanup(); }),
       { numRuns: 100 }
     );
   });

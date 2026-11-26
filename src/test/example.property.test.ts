@@ -39,7 +39,7 @@ describe('Property-Based Testing Setup', () => {
       fc.property(
         fc.record({
           id: fc.uuid(),
-          name: fc.string({ minLength: 1, maxLength: 50 }),
+          name: fc.string({ minLength: 1, maxLength: 50 }).filter((s) => s.trim().length > 0),
           age: fc.integer({ min: 0, max: 120 }),
           email: fc.option(fc.emailAddress()),
         }),

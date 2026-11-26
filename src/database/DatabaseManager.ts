@@ -21,16 +21,17 @@ export class DatabaseManager {
   async initialize(): Promise<void> {
     try {
       // Initialize sql.js
-      this.SQL = await initSqlJs();
+      // The browser demo sets this to tell sql.js where its .wasm file is
+      this.SQL = await initSqlJs((globalThis as any).__SQLJS_CONFIG__);
 
       // Ensure the directory exists
       const dbDir = path.dirname(this.dbPath);
-      if (!fs.existsSync(dbDir)) {
+      if (!this.isInMemory() && !fs.existsSync(dbDir)) {
         fs.mkdirSync(dbDir, { recursive: true });
       }
 
       // Load existing database or create new one
-      if (fs.existsSync(this.dbPath)) {
+      if (!this.isInMemory() && fs.existsSync(this.dbPath)) {
         const buffer = fs.readFileSync(this.dbPath);
         this.db = new this.SQL.Database(buffer);
         logger.info('Loaded existing database');
@@ -60,6 +61,10 @@ export class DatabaseManager {
   /**
    * Save database to disk
    */
+  private isInMemory(): boolean {
+    return this.dbPath === ':memory:';
+  }
+
   private saveDatabase(): void {
     if (!this.db) {
       throw new Error('Database not initialized');
@@ -70,8 +75,16 @@ export class DatabaseManager {
       return;
     }
 
+    // ':memory:' databases are never written to disk (they used to create a file
+    // literally named ':memory:' that leaked data between runs)
+    if (this.isInMemory()) {
+      return;
+    }
+
     try {
       const data = this.db.export();
+      // sql.js resets connection pragmas on export(): without this, foreign keys silently turn OFF after the first save
+      this.db.run('PRAGMA foreign_keys = ON');
       const buffer = Buffer.from(data);
       fs.writeFileSync(this.dbPath, buffer);
     } catch (error) {
@@ -409,7 +422,8 @@ export class DatabaseManager {
         columns.forEach((col: string, index: number) => {
           obj[col] = row[index];
         });
-        return JSON.parse(JSON.stringify(obj)) as T; // Deep clone to plain object
+        // Plain object copy. (A JSON round trip here used to turn BLOB columns into {"0":..} objects.)
+        return obj as T;
       });
     } catch (error) {
       logger.error('Query execution failed', { sql, params, error });
@@ -502,8 +516,9 @@ export class DatabaseManager {
         fs.mkdirSync(destDir, { recursive: true });
       }
 
-      // Export and save database
+      // Export and save database (export() resets pragmas, so turn foreign keys back on)
       const data = this.db.export();
+      this.db.run('PRAGMA foreign_keys = ON');
       const buffer = Buffer.from(data);
       fs.writeFileSync(destination, buffer);
       

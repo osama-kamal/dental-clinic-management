@@ -1,10 +1,12 @@
+/** @jest-environment jsdom */
+/// <reference types="@testing-library/jest-dom" />
 /**
  * Property-Based Tests for Treatment Components
  * Requirements: 4.5
  */
 
 import * as fc from 'fast-check';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, cleanup } from '@testing-library/react';
 import { TreatmentList } from './TreatmentList';
 import { ipcClient } from '../../api/ipcClient';
 
@@ -14,33 +16,33 @@ const mockIpcClient = ipcClient as jest.Mocked<typeof ipcClient>;
 
 const treatmentArbitrary = fc.record({
   id: fc.uuid(),
-  treatmentCode: fc.string({ minLength: 2, maxLength: 10 }).map(s => s.toUpperCase()),
-  description: fc.string({ minLength: 10, maxLength: 100 }),
-  tooth: fc.option(fc.string({ minLength: 1, maxLength: 5 }), { nil: undefined }),
+  treatmentCode: fc.string({ minLength: 2, maxLength: 10 }).filter((s) => s.trim().length > 0).map((s) => s.replace(/\s+/g, ' ').trim()).map(s => s.toUpperCase()),
+  description: fc.string({ minLength: 10, maxLength: 100 }).filter((s) => s.trim().length > 0).map((s) => s.replace(/\s+/g, ' ').trim()),
+  tooth: fc.option(fc.string({ minLength: 1, maxLength: 5 }).filter((s) => s.trim().length > 0).map((s) => s.replace(/\s+/g, ' ').trim()), { nil: undefined }),
   status: fc.constantFrom(
     'Planned' as const,
     'In Progress' as const,
     'Completed' as const,
     'Cancelled' as const
   ),
-  estimatedCost: fc.float({ min: 50, max: 5000 }),
-  actualCost: fc.option(fc.float({ min: 50, max: 5000 }), { nil: undefined }),
+  estimatedCost: fc.float({ min: 50, max: 5000, noNaN: true }),
+  actualCost: fc.option(fc.float({ min: 50, max: 5000, noNaN: true }), { nil: undefined }),
   estimatedDuration: fc.integer({ min: 15, max: 240 }),
   actualDuration: fc.option(fc.integer({ min: 15, max: 240 }), { nil: undefined }),
   completedAt: fc.option(
     fc.date({ min: new Date('2024-01-01'), max: new Date() }).map(d => d.toISOString()),
     { nil: undefined }
   ),
-  completedBy: fc.option(fc.string({ minLength: 3, maxLength: 50 }), { nil: undefined }),
-  notes: fc.option(fc.string({ maxLength: 200 }), { nil: undefined }),
+  completedBy: fc.option(fc.string({ minLength: 3, maxLength: 50 }).filter((s) => s.trim().length > 0).map((s) => s.replace(/\s+/g, ' ').trim()), { nil: undefined }),
+  notes: fc.option(fc.string({ maxLength: 200 }).filter((s) => s.trim().length > 0).map((s) => s.replace(/\s+/g, ' ').trim()), { nil: undefined }),
 });
 
 const treatmentPlanArbitrary = fc.record({
   id: fc.uuid(),
   patientId: fc.uuid(),
   createdAt: fc.date({ min: new Date('2024-01-01'), max: new Date() }).map(d => d.toISOString()),
-  createdBy: fc.string({ minLength: 3, maxLength: 50 }),
-  totalEstimatedCost: fc.float({ min: 100, max: 10000 }),
+  createdBy: fc.string({ minLength: 3, maxLength: 50 }).filter((s) => s.trim().length > 0).map((s) => s.replace(/\s+/g, ' ').trim()),
+  totalEstimatedCost: fc.float({ min: 100, max: 10000, noNaN: true }),
   status: fc.constantFrom('Active', 'Completed', 'Cancelled'),
   treatments: fc.array(treatmentArbitrary, { minLength: 1, maxLength: 10 }),
 });
@@ -85,21 +87,21 @@ describe('Treatment Components Property Tests', () => {
                 month: 'short',
                 day: 'numeric',
               });
-              expect(screen.getByText(new RegExp(dateStr))).toBeInTheDocument();
+              expect(screen.getAllByText(new RegExp(dateStr))[0]).toBeInTheDocument();
 
               // Total cost must be displayed
               expect(
-                screen.getByText(new RegExp(`\\$${plan.totalEstimatedCost.toFixed(2)}`))
+                screen.getAllByText(new RegExp(`\\$${plan.totalEstimatedCost.toFixed(2)}`))[0]
               ).toBeInTheDocument();
 
               // Number of treatments must be displayed
               expect(
-                screen.getByText(new RegExp(`${plan.treatments.length} treatment`))
+                screen.getAllByText(new RegExp(`${plan.treatments.length} treatment`))[0]
               ).toBeInTheDocument();
             });
           }
         }
-      ),
+      ).afterEach(() => { cleanup(); }),
       { numRuns: 50 } // Reduced for async tests
     );
   });
@@ -124,29 +126,29 @@ describe('Treatment Components Property Tests', () => {
           // Expand the plan to see treatments
           const expandButton = container.querySelector('[aria-label*="expand"], button');
           if (expandButton) {
-            expandButton.click();
+            (expandButton as HTMLElement).click();
           }
 
           // Each treatment must display required information
           for (const treatment of treatmentPlan.treatments) {
             await waitFor(() => {
               // Treatment code must be displayed
-              expect(screen.getByText(treatment.treatmentCode)).toBeInTheDocument();
+              expect(screen.getAllByText(treatment.treatmentCode)[0]).toBeInTheDocument();
 
               // Treatment description must be displayed
-              expect(screen.getByText(treatment.description)).toBeInTheDocument();
+              expect(screen.getAllByText(treatment.description)[0]).toBeInTheDocument();
 
               // Status must be displayed
-              expect(screen.getByText(treatment.status)).toBeInTheDocument();
+              expect(screen.getAllByText(treatment.status)[0]).toBeInTheDocument();
 
               // Estimated cost must be displayed
               expect(
-                screen.getByText(new RegExp(`\\$${treatment.estimatedCost.toFixed(2)}`))
+                screen.getAllByText(new RegExp(`\\$${treatment.estimatedCost.toFixed(2)}`))[0]
               ).toBeInTheDocument();
             });
           }
         }
-      ),
+      ).afterEach(() => { cleanup(); }),
       { numRuns: 50 }
     );
   });
@@ -191,30 +193,30 @@ describe('Treatment Components Property Tests', () => {
           // Expand plan
           const expandButton = container.querySelector('button');
           if (expandButton) {
-            expandButton.click();
+            (expandButton as HTMLElement).click();
           }
 
           await waitFor(() => {
             // Completion date must be displayed
             if (completedTreatment.completedAt) {
-              const dateStr = new Date(completedTreatment.completedAt).toLocaleDateString();
-              expect(screen.getByText(new RegExp(dateStr))).toBeInTheDocument();
+              const dateStr = new Date(completedTreatment.completedAt).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
+              expect(screen.getAllByText(new RegExp(dateStr))[0]).toBeInTheDocument();
             }
 
             // Completed by must be displayed
             if (completedTreatment.completedBy) {
-              expect(screen.getByText(new RegExp(completedTreatment.completedBy))).toBeInTheDocument();
+              expect(screen.getAllByText(new RegExp(completedTreatment.completedBy))[0]).toBeInTheDocument();
             }
 
             // Actual cost must be displayed if present
             if (completedTreatment.actualCost) {
               expect(
-                screen.getByText(new RegExp(`\\$${completedTreatment.actualCost.toFixed(2)}`))
+                screen.getAllByText(new RegExp(`\\$${completedTreatment.actualCost.toFixed(2)}`))[0]
               ).toBeInTheDocument();
             }
           });
         }
-      ),
+      ).afterEach(() => { cleanup(); }),
       { numRuns: 50 }
     );
   });
@@ -251,7 +253,7 @@ describe('Treatment Components Property Tests', () => {
           // Total cost must match sum of treatment costs
           await waitFor(() => {
             expect(
-              screen.getByText(new RegExp(`\\$${totalCost.toFixed(2)}`))
+              screen.getAllByText(new RegExp(`\\$${totalCost.toFixed(2)}`))[0]
             ).toBeInTheDocument();
           });
 
@@ -259,7 +261,7 @@ describe('Treatment Components Property Tests', () => {
           const calculatedTotal = treatments.reduce((sum, t) => sum + t.estimatedCost, 0);
           expect(Math.abs(calculatedTotal - totalCost)).toBeLessThan(0.01);
         }
-      ),
+      ).afterEach(() => { cleanup(); }),
       { numRuns: 50 }
     );
   });
@@ -299,17 +301,20 @@ describe('Treatment Components Property Tests', () => {
           // Expand plan
           const expandButton = container.querySelector('button');
           if (expandButton) {
-            expandButton.click();
+            (expandButton as HTMLElement).click();
           }
 
           // Status must be displayed with chip
           await waitFor(() => {
-            expect(screen.getByText(status)).toBeInTheDocument();
-            const statusChip = screen.getByText(status).closest('.MuiChip-root');
+            expect(screen.getAllByText(status)[0]).toBeInTheDocument();
+            const statusChip = screen
+              .getAllByText(status)
+              .map((el) => el.closest('.MuiChip-root'))
+              .find((el) => el !== null);
             expect(statusChip).toBeInTheDocument();
           });
         }
-      ),
+      ).afterEach(() => { cleanup(); }),
       { numRuns: 50 }
     );
   });

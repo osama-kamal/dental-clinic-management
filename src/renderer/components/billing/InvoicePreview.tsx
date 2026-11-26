@@ -1,3 +1,4 @@
+import { downloadFile } from '../../utils/downloadFile';
 import React, { useState, useEffect } from 'react';
 import {
   Dialog,
@@ -108,8 +109,9 @@ export const InvoicePreview: React.FC<InvoicePreviewProps> = ({ invoiceId, open,
     setError('');
     try {
       const response = await ipcClient.generateInvoicePDF(invoiceId);
-      if (response.success) {
-        alert('PDF generated successfully');
+      if (response.success && response.data) {
+        downloadFile(response.data, 'application/pdf', `${invoice?.invoiceNumber || 'invoice'}.pdf`);
+        alert('Invoice PDF downloaded');
       } else {
         setError(response.error || 'Failed to generate PDF');
       }

@@ -267,12 +267,14 @@ export class PatientService {
       const params: any[] = [];
 
       if (query && query.trim() !== '') {
-        const searchTerm = `%${query.trim().toLowerCase()}%`;
+        // escape LIKE wildcards so a search for '%' or '_' matches those characters literally
+        const escaped = query.trim().toLowerCase().replace(/[\\%_]/g, (c) => `\\${c}`);
+        const searchTerm = `%${escaped}%`;
         sql += ` WHERE 
-          LOWER(first_name) LIKE ? OR 
-          LOWER(last_name) LIKE ? OR 
-          LOWER(phone) LIKE ? OR 
-          LOWER(email) LIKE ? OR 
+          LOWER(first_name) LIKE ? ESCAPE '\\' OR 
+          LOWER(last_name) LIKE ? ESCAPE '\\' OR 
+          LOWER(phone) LIKE ? ESCAPE '\\' OR 
+          LOWER(email) LIKE ? ESCAPE '\\' OR 
           LOWER(id) = ?`;
         params.push(searchTerm, searchTerm, searchTerm, searchTerm, query.trim().toLowerCase());
       }

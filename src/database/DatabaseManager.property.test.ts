@@ -38,9 +38,9 @@ describe('DatabaseManager Property Tests', () => {
         fc.property(
           fc.array(
             fc.record({
-              firstName: fc.string({ minLength: 1, maxLength: 50 }),
-              lastName: fc.string({ minLength: 1, maxLength: 50 }),
-              username: fc.string({ minLength: 3, maxLength: 30 }),
+              firstName: fc.string({ minLength: 1, maxLength: 50 }).filter((s) => s.trim().length > 0),
+              lastName: fc.string({ minLength: 1, maxLength: 50 }).filter((s) => s.trim().length > 0),
+              username: fc.string({ minLength: 3, maxLength: 30 }).filter((s) => s.trim().length > 0),
               role: fc.constantFrom('Administrator', 'Dentist', 'Receptionist'),
             }),
             { minLength: 2, maxLength: 5 }
@@ -95,9 +95,9 @@ describe('DatabaseManager Property Tests', () => {
       fc.assert(
         fc.property(
           fc.record({
-            firstName: fc.string({ minLength: 1, maxLength: 50 }),
-            lastName: fc.string({ minLength: 1, maxLength: 50 }),
-            username: fc.string({ minLength: 3, maxLength: 30 }),
+            firstName: fc.string({ minLength: 1, maxLength: 50 }).filter((s) => s.trim().length > 0),
+            lastName: fc.string({ minLength: 1, maxLength: 50 }).filter((s) => s.trim().length > 0),
+            username: fc.string({ minLength: 3, maxLength: 30 }).filter((s) => s.trim().length > 0),
             role: fc.constantFrom('Administrator', 'Dentist', 'Receptionist'),
           }),
           (user) => {
@@ -144,7 +144,6 @@ describe('DatabaseManager Property Tests', () => {
       );
     });
   });
-});
 
   // Feature: dental-clinic-management, Property 49: Transaction rollback on failure
   describe('Property 49: Transaction rollback on failure', () => {
@@ -160,9 +159,9 @@ describe('DatabaseManager Property Tests', () => {
         fc.property(
           fc.array(
             fc.record({
-              firstName: fc.string({ minLength: 1, maxLength: 50 }),
-              lastName: fc.string({ minLength: 1, maxLength: 50 }),
-              username: fc.string({ minLength: 3, maxLength: 30 }),
+              firstName: fc.string({ minLength: 1, maxLength: 50 }).filter((s) => s.trim().length > 0),
+              lastName: fc.string({ minLength: 1, maxLength: 50 }).filter((s) => s.trim().length > 0),
+              username: fc.string({ minLength: 3, maxLength: 30 }).filter((s) => s.trim().length > 0),
               role: fc.constantFrom('Administrator', 'Dentist', 'Receptionist'),
             }),
             { minLength: 3, maxLength: 10 }
@@ -222,9 +221,9 @@ describe('DatabaseManager Property Tests', () => {
       fc.assert(
         fc.property(
           fc.record({
-            patientFirstName: fc.string({ minLength: 1, maxLength: 50 }),
-            patientLastName: fc.string({ minLength: 1, maxLength: 50 }),
-            phone: fc.string({ minLength: 10, maxLength: 15 }),
+            patientFirstName: fc.string({ minLength: 1, maxLength: 50 }).filter((s) => s.trim().length > 0),
+            patientLastName: fc.string({ minLength: 1, maxLength: 50 }).filter((s) => s.trim().length > 0),
+            phone: fc.string({ minLength: 10, maxLength: 15 }).filter((s) => s.trim().length > 0),
           }),
           (data) => {
             // Get initial patient count
@@ -376,9 +375,9 @@ describe('DatabaseManager Property Tests', () => {
         fc.property(
           fc.array(
             fc.record({
-              firstName: fc.string({ minLength: 1, maxLength: 50 }),
-              lastName: fc.string({ minLength: 1, maxLength: 50 }),
-              username: fc.string({ minLength: 3, maxLength: 30 }),
+              firstName: fc.string({ minLength: 1, maxLength: 50 }).filter((s) => s.trim().length > 0),
+              lastName: fc.string({ minLength: 1, maxLength: 50 }).filter((s) => s.trim().length > 0),
+              username: fc.string({ minLength: 3, maxLength: 30 }).filter((s) => s.trim().length > 0),
               role: fc.constantFrom('Administrator', 'Dentist', 'Receptionist'),
             }),
             { minLength: 1, maxLength: 5 }

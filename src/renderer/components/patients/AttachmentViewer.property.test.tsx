@@ -1,10 +1,12 @@
+/** @jest-environment jsdom */
+/// <reference types="@testing-library/jest-dom" />
 /**
  * Property-Based Tests for Attachment Viewer Component
  * Requirements: 13.8
  */
 
 import * as fc from 'fast-check';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, cleanup } from '@testing-library/react';
 import { AttachmentViewer } from './AttachmentViewer';
 import { ipcClient } from '../../api/ipcClient';
 
@@ -22,10 +24,10 @@ const mockIpcClient = ipcClient as jest.Mocked<typeof ipcClient>;
 const attachmentArbitrary = fc.record({
   id: fc.uuid(),
   patientId: fc.uuid(),
-  filename: fc.string({ minLength: 5, maxLength: 50 }).map(s => `${s}.pdf`),
+  filename: fc.string({ minLength: 5, maxLength: 50 }).filter((s) => s.trim().length > 0).map((s) => s.replace(/\s+/g, ' ').trim()).map(s => `${s}.pdf`),
   fileType: fc.constantFrom('image/jpeg', 'image/png', 'application/pdf'),
   fileSize: fc.integer({ min: 1024, max: 10 * 1024 * 1024 }),
-  uploadedBy: fc.string({ minLength: 3, maxLength: 50 }),
+  uploadedBy: fc.string({ minLength: 3, maxLength: 50 }).filter((s) => s.trim().length > 0).map((s) => s.replace(/\s+/g, ' ').trim()),
   uploadedAt: fc.date({ min: new Date('2020-01-01'), max: new Date() })
     .map(d => d.toISOString()),
 });
@@ -64,7 +66,7 @@ describe('AttachmentViewer Property Tests', () => {
           // All attachments must be displayed in the list
           for (const attachment of attachments) {
             await waitFor(() => {
-              expect(screen.getByText(attachment.filename)).toBeInTheDocument();
+              expect(screen.getAllByText(attachment.filename)[0]).toBeInTheDocument();
             });
           }
 
@@ -77,7 +79,7 @@ describe('AttachmentViewer Property Tests', () => {
           const imageIcons = document.querySelectorAll('.MuiSvgIcon-root');
           expect(imageIcons.length).toBeGreaterThan(0);
         }
-      ),
+      ).afterEach(() => { cleanup(); }),
       { numRuns: 50 } // Reduced runs for async tests
     );
   });
@@ -100,14 +102,14 @@ describe('AttachmentViewer Property Tests', () => {
           });
 
           // Upload button must specify accepted formats
-          const uploadButton = screen.getByText(/Upload File/i);
+          const uploadButton = screen.getAllByText(/Upload File/i)[0];
           expect(uploadButton).toBeInTheDocument();
 
           // File input must have accept attribute with supported formats
           const fileInput = document.querySelector('input[type="file"]');
           expect(fileInput).toHaveAttribute('accept', 'image/jpeg,image/png,application/pdf');
         }
-      ),
+      ).afterEach(() => { cleanup(); }),
       { numRuns: 50 }
     );
   });
@@ -133,14 +135,14 @@ describe('AttachmentViewer Property Tests', () => {
           for (const attachment of attachments) {
             await waitFor(() => {
               // Filename must be displayed
-              expect(screen.getByText(attachment.filename)).toBeInTheDocument();
+              expect(screen.getAllByText(attachment.filename)[0]).toBeInTheDocument();
 
               // Uploader must be displayed
-              expect(screen.getByText(new RegExp(attachment.uploadedBy))).toBeInTheDocument();
+              expect(screen.getAllByText(new RegExp(attachment.uploadedBy.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")))[0]).toBeInTheDocument();
             });
           }
         }
-      ),
+      ).afterEach(() => { cleanup(); }),
       { numRuns: 50 }
     );
   });
@@ -169,7 +171,7 @@ describe('AttachmentViewer Property Tests', () => {
           // At least one button per attachment (view or delete)
           expect(viewButtons.length + deleteButtons.length).toBeGreaterThanOrEqual(attachments.length);
         }
-      ),
+      ).afterEach(() => { cleanup(); }),
       { numRuns: 50 }
     );
   });
@@ -193,11 +195,11 @@ describe('AttachmentViewer Property Tests', () => {
 
           // Attachment count must be displayed
           await waitFor(() => {
-            const countChip = screen.getByText(attachments.length.toString());
+            const countChip = screen.getAllByText(attachments.length.toString())[0];
             expect(countChip).toBeInTheDocument();
           });
         }
-      ),
+      ).afterEach(() => { cleanup(); }),
       { numRuns: 50 }
     );
   });

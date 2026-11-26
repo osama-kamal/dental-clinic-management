@@ -38,18 +38,24 @@ describe('DatabaseManager', () => {
       expect(fs.existsSync(testDbPath)).toBe(true);
     });
 
-    it('should enable WAL mode', async () => {
+    it('should persist data to disk and reload it (sql.js exports the database to the file)', async () => {
       await dbManager.initialize();
-      const db = dbManager.getDatabase();
-      const result = db.pragma('journal_mode', { simple: true });
-      expect(result[0].journal_mode).toBe('wal');
+      dbManager.executeUpdate('CREATE TABLE persist_check (id INTEGER PRIMARY KEY, v TEXT)');
+      dbManager.executeUpdate('INSERT INTO persist_check (v) VALUES (?)', ['kept']);
+      dbManager.close();
+
+      const reopened = new DatabaseManager(testDbPath);
+      await reopened.initialize();
+      const row = reopened.executeQueryOne<{ v: string }>('SELECT v FROM persist_check');
+      expect(row?.v).toBe('kept');
+      reopened.close();
+      dbManager = reopened;
     });
 
     it('should enable foreign keys', async () => {
       await dbManager.initialize();
-      const db = dbManager.getDatabase();
-      const result = db.pragma('foreign_keys', { simple: true });
-      expect(result[0].foreign_keys).toBe(1);
+      const row = dbManager.executeQueryOne<{ foreign_keys: number }>('PRAGMA foreign_keys');
+      expect(row?.foreign_keys).toBe(1);
     });
   });
 

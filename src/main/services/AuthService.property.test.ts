@@ -42,7 +42,7 @@ describe('AuthService Property Tests', () => {
         fc.asyncProperty(
           fc.record({
             username: fc.string({ minLength: 3, maxLength: 50 }).filter(s => !s.includes("'")),
-            password: fc.string({ minLength: 6, maxLength: 100 }),
+            password: fc.string({ minLength: 6, maxLength: 100 }).filter((s) => s.trim().length > 0),
             firstName: fc.string({ minLength: 1, maxLength: 50 }).filter(s => !s.includes("'")),
             lastName: fc.string({ minLength: 1, maxLength: 50 }).filter(s => !s.includes("'")),
             role: fc.constantFrom<UserRole>('Administrator', 'Dentist', 'Receptionist'),
@@ -85,7 +85,7 @@ describe('AuthService Property Tests', () => {
         fc.asyncProperty(
           fc.record({
             username: fc.string({ minLength: 3, maxLength: 50 }).filter(s => !s.includes("'")),
-            password: fc.string({ minLength: 6, maxLength: 100 }),
+            password: fc.string({ minLength: 6, maxLength: 100 }).filter((s) => s.trim().length > 0),
             firstName: fc.string({ minLength: 1, maxLength: 50 }).filter(s => !s.includes("'")),
             lastName: fc.string({ minLength: 1, maxLength: 50 }).filter(s => !s.includes("'")),
             role: fc.constantFrom<UserRole>('Administrator', 'Dentist', 'Receptionist'),
@@ -105,7 +105,7 @@ describe('AuthService Property Tests', () => {
               return true;
             }
 
-            let authResult;
+            let authResult!: Awaited<ReturnType<typeof authService.authenticate>>;
 
             switch (invalidType) {
               case 'wrong_password':
@@ -149,7 +149,7 @@ describe('AuthService Property Tests', () => {
         fc.asyncProperty(
           fc.record({
             username: fc.string({ minLength: 3, maxLength: 50 }).filter(s => !s.includes("'")),
-            password: fc.string({ minLength: 6, maxLength: 100 }),
+            password: fc.string({ minLength: 6, maxLength: 100 }).filter((s) => s.trim().length > 0),
             firstName: fc.string({ minLength: 1, maxLength: 50 }).filter(s => !s.includes("'")),
             lastName: fc.string({ minLength: 1, maxLength: 50 }).filter(s => !s.includes("'")),
             role: fc.constantFrom<UserRole>('Administrator', 'Dentist', 'Receptionist'),
@@ -207,7 +207,7 @@ describe('AuthService Property Tests', () => {
         fc.asyncProperty(
           fc.record({
             username: fc.string({ minLength: 3, maxLength: 50 }).filter(s => !s.includes("'")),
-            password: fc.string({ minLength: 6, maxLength: 100 }),
+            password: fc.string({ minLength: 6, maxLength: 100 }).filter((s) => s.trim().length > 0),
             firstName: fc.string({ minLength: 1, maxLength: 50 }).filter(s => !s.includes("'")),
             lastName: fc.string({ minLength: 1, maxLength: 50 }).filter(s => !s.includes("'")),
             role: fc.constantFrom<UserRole>('Administrator', 'Dentist', 'Receptionist'),
@@ -258,7 +258,7 @@ describe('AuthService Property Tests', () => {
         fc.asyncProperty(
           fc.record({
             username: fc.string({ minLength: 3, maxLength: 50 }).filter(s => !s.includes("'")),
-            password: fc.string({ minLength: 6, maxLength: 100 }),
+            password: fc.string({ minLength: 6, maxLength: 100 }).filter((s) => s.trim().length > 0),
             firstName: fc.string({ minLength: 1, maxLength: 50 }).filter(s => !s.includes("'")),
             lastName: fc.string({ minLength: 1, maxLength: 50 }).filter(s => !s.includes("'")),
             role: fc.constantFrom<UserRole>('Administrator', 'Dentist', 'Receptionist'),

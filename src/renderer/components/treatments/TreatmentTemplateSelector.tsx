@@ -105,7 +105,7 @@ export const TreatmentTemplateSelector: React.FC<TreatmentTemplateSelectorProps>
 
   return (
     <Box>
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 1, mb: 3 }}>
         <Typography variant="h4">Select Treatment Template</Typography>
         <IconButton onClick={onClose}>
           <Close />

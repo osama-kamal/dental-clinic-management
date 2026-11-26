@@ -93,6 +93,29 @@ export const LoginScreen: React.FC = () => {
             </Button>
           </form>
 
+          {(window as any).__DEMO__ && (
+            <Box sx={{ mt: 2 }}>
+              <Button
+                fullWidth
+                variant="outlined"
+                disabled={loading}
+                onClick={async () => {
+                  setError('');
+                  setLoading(true);
+                  const d = (window as any).__DEMO__;
+                  const result = await login(d.username, d.password);
+                  if (!result.success) setError(result.error || 'Login failed');
+                  setLoading(false);
+                }}
+              >
+                Try the demo as admin
+              </Button>
+              <Typography variant="caption" color="text.secondary" display="block" align="center" sx={{ mt: 1 }}>
+                Browser demo with made-up data. Everything stays in your own browser.
+              </Typography>
+            </Box>
+          )}
+
           <Typography variant="caption" color="text.secondary" sx={{ mt: 2, display: 'block', textAlign: 'center' }}>
             Requirements: 1.1, 1.2, 1.3
           </Typography>

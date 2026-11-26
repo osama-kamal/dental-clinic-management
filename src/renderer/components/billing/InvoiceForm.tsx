@@ -83,7 +83,7 @@ export const InvoiceForm: React.FC<InvoiceFormProps> = ({
       if (res.success && Array.isArray(res.data)) {
         const list: InvoiceItem[] = res.data
           .flatMap((plan: any) => plan.treatments || [])
-          .filter((t: any) => t.status !== 'Cancelled')
+          .filter((t: any) => t.status !== 'Cancelled' && !t.invoiced)
           .map((t: any) => ({
             treatmentId: t.id,
             description: `${t.code} - ${t.description}`,
@@ -225,7 +225,7 @@ export const InvoiceForm: React.FC<InvoiceFormProps> = ({
 
   return (
     <Box>
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 1, mb: 3 }}>
         <Typography variant="h4">Create Invoice</Typography>
         <Button variant="outlined" startIcon={<Cancel />} onClick={() => onClose(false)}>
           Cancel
@@ -268,7 +268,7 @@ export const InvoiceForm: React.FC<InvoiceFormProps> = ({
         </Box>
 
         <TableContainer>
-          <Table>
+          <Table sx={{ minWidth: 560 }}>
             <TableHead>
               <TableRow>
                 <TableCell width="40%">Description</TableCell>

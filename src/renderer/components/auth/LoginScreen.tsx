@@ -115,10 +115,6 @@ export const LoginScreen: React.FC = () => {
               </Typography>
             </Box>
           )}
-
-          <Typography variant="caption" color="text.secondary" sx={{ mt: 2, display: 'block', textAlign: 'center' }}>
-            Requirements: 1.1, 1.2, 1.3
-          </Typography>
         </CardContent>
       </Card>
     </Box>
